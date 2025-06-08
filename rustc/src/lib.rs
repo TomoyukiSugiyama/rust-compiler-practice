@@ -11,6 +11,14 @@ pub struct Token {
     next: Option<Box<Token>>,
 }
 
+impl Token {
+    /// Append a new token of the given kind after this one and return a mutable reference to it.
+    pub fn push(&mut self, kind: TokenKind) -> &mut Token {
+        self.next = Some(Box::new(Token { kind, next: None }));
+        self.next.as_mut().unwrap()
+    }
+}
+
 pub fn new_token(kind: TokenKind, cur: Token) -> Token {
     Token {
         kind,
@@ -45,50 +53,39 @@ pub fn at_eof(cur: &Token) -> bool {
 /// Supports positive integers and the '+' and '-' operators.
 /// Returns the head `Token`, whose chained `next` pointers end with an `Eof` token.
 pub fn tokenize(exp: &str) -> Token {
-    // Build linked list with a sentinel head and mutable tail reference
+    // Build linked list with a sentinel head
     let mut head = Token {
         kind: TokenKind::Eof,
         next: None,
     };
     let mut tail = &mut head;
-    let mut curr_num: Option<u64> = None;
-
-    for c in exp.chars() {
+    // Iterate with peekable to group digits into one number
+    let mut chars = exp.chars().peekable();
+    while let Some(&c) = chars.peek() {
         if c.is_whitespace() {
-            continue;
-        }
-        if c.is_ascii_digit() {
-            let d = c.to_digit(10).unwrap() as u64;
-            curr_num = Some(curr_num.unwrap_or(0).wrapping_mul(10).wrapping_add(d));
-        } else if c == '+' || c == '-' {
-            if let Some(n) = curr_num {
-                tail.next = Some(Box::new(Token {
-                    kind: TokenKind::Number(n),
-                    next: None,
-                }));
-                tail = tail.next.as_mut().unwrap();
-                curr_num = None;
+            chars.next();
+        } else if c.is_ascii_digit() {
+            let mut num = 0u64;
+            while let Some(&dch) = chars.peek() {
+                if dch.is_ascii_digit() {
+                    num = num
+                        .wrapping_mul(10)
+                        .wrapping_add(dch.to_digit(10).unwrap() as u64);
+                    chars.next();
+                } else {
+                    break;
+                }
             }
-            tail.next = Some(Box::new(Token {
-                kind: TokenKind::Operator(c),
-                next: None,
-            }));
-            tail = tail.next.as_mut().unwrap();
+            tail = tail.push(TokenKind::Number(num));
+        } else if c == '+' || c == '-' {
+            let op = c;
+            chars.next();
+            tail = tail.push(TokenKind::Operator(op));
         } else {
             panic!("Invalid character in expression: {}", c);
         }
     }
-    if let Some(n) = curr_num {
-        tail.next = Some(Box::new(Token {
-            kind: TokenKind::Number(n),
-            next: None,
-        }));
-        tail = tail.next.as_mut().unwrap();
-    }
     // Append EOF token
-    tail.next = Some(Box::new(Token {
-        kind: TokenKind::Eof,
-        next: None,
-    }));
+    tail.push(TokenKind::Eof);
     head
 }
