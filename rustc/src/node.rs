@@ -10,6 +10,7 @@ pub enum Node {
     Div(Box<Node>, Box<Node>),
 }
 
+// expr ::= mul (('+' | '-') mul)*
 pub fn expr(toks: &mut Peekable<TokenIter>) -> Node {
     let mut lhs = mul(toks);
     while let Some(tok) = toks.peek() {
@@ -28,6 +29,7 @@ pub fn expr(toks: &mut Peekable<TokenIter>) -> Node {
     lhs
 }
 
+// mul ::= primary (('*' | '/') primary)*
 fn mul(toks: &mut Peekable<TokenIter>) -> Node {
     let mut lhs = primary(toks);
     while let Some(tok) = toks.peek() {
@@ -46,6 +48,7 @@ fn mul(toks: &mut Peekable<TokenIter>) -> Node {
     lhs
 }
 
+// primary ::= number | '(' expr ')'
 fn primary(toks: &mut Peekable<TokenIter>) -> Node {
     let tok = toks.next().unwrap();
     match tok.kind {
