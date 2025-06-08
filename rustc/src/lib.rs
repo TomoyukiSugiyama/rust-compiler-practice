@@ -25,11 +25,6 @@ impl Token {
     }
 }
 
-pub fn consume(cur: Token) -> Option<Token> {
-    // Unbox the next token if present
-    cur.next.map(|boxed| *boxed)
-}
-
 /// Report an error at the given position in `exp` and exit.
 fn error_at(exp: &str, pos: usize, msg: &str) -> ! {
     // Print the input and a caret under the error position
@@ -169,5 +164,46 @@ mod tests {
         let first = head.next.as_ref().unwrap();
         let eof_tok = first.next.as_ref().unwrap();
         assert!(at_eof(eof_tok));
+    }
+
+    #[test]
+    fn test_into_iterator() {
+        let kinds: Vec<TokenKind> = tokenize("12 + 34 -5")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Number(12),
+                TokenKind::Operator('+'),
+                TokenKind::Number(34),
+                TokenKind::Operator('-'),
+                TokenKind::Number(5),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "無効な文字です")]
+    fn test_tokenize_panic_on_invalid_char() {
+        let _ = tokenize("a");
+    }
+
+    #[test]
+    #[should_panic(expected = "数ではありません")]
+    fn test_expect_number_panic() {
+        let head = tokenize("1+2");
+        let op_tok = head.next.as_ref().unwrap().next.as_ref().unwrap();
+        expect_number(op_tok, "1+2");
+    }
+
+    #[test]
+    #[should_panic(expected = "演算子ではありません")]
+    fn test_expect_operator_panic() {
+        let head = tokenize("123");
+        let num_tok = head.next.as_ref().unwrap();
+        expect_operator(num_tok, "123");
     }
 }
