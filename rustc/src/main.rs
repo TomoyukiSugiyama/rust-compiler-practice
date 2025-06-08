@@ -7,19 +7,7 @@ fn main() {
 
     let mut iter = tokenize(&exp).into_iter().peekable();
 
-
-
-
-
     let node = expr(&mut iter);
-    println!(".section __TEXT,__text");
-    println!(".globl _main");
-    println!("_main:");
+    // Generate the program
     generate(&node);
-    // Pop final result and restore stack pointer
-    println!("    ldr x0, [sp]");
-    println!("    add sp, sp, #16");
-    println!("    ret");
-
-
 }
