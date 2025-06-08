@@ -48,10 +48,20 @@ fn mul(toks: &mut Peekable<TokenIter>) -> Node {
 
 fn primary(toks: &mut Peekable<TokenIter>) -> Node {
     let tok = toks.next().unwrap();
-    if let TokenKind::Number(n) = tok.kind {
-        Node::Num(n)
-    } else {
-        unreachable!()
+    match tok.kind {
+        TokenKind::Number(n) => Node::Num(n),
+        TokenKind::Operator('(') => {
+            // Parse sub-expression
+            let node = expr(toks);
+            // Expect closing ')'
+            let closing = toks.next().unwrap();
+            if let TokenKind::Operator(')') = closing.kind {
+                node
+            } else {
+                panic!("expected ')' but found {:?}", closing.kind);
+            }
+        }
+        _ => unreachable!(),
     }
 }
 

@@ -89,6 +89,10 @@ pub fn tokenize(exp: &str) -> Token {
             let pos = i;
             chars.next();
             tail = tail.push(TokenKind::Operator(c), pos);
+        } else if c == '(' || c == ')' {
+            let pos = i;
+            chars.next();
+            tail = tail.push(TokenKind::Operator(c), pos);
         } else {
             error_at(exp, i, "無効な文字です");
         }

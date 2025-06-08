@@ -27,5 +27,6 @@ assert 4 '1+2-3+4'
 assert 4 ' 1  +2- 3+4 '
 assert 7 ' 1 + 2 * 3 '
 assert 4 ' 6 - 6 / 3 '
+assert 9 ' (1 + 2) * 3 '
 
 echo "OK"
