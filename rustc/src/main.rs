@@ -1,5 +1,5 @@
 use rustc::node::*;
-use rustc::*;
+use rustc::token::*;
 use std::env;
 
 fn main() {

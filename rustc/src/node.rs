@@ -1,4 +1,4 @@
-use crate::{TokenIter, TokenKind};
+use crate::token::*;
 use std::iter::Peekable;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -108,7 +108,6 @@ pub fn generate(node: &Node) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tokenize;
 
     #[test]
     fn test_primary() {
