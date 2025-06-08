@@ -136,4 +136,32 @@ mod tests {
         );
         assert_eq!(node, expected);
     }
+
+    #[test]
+    fn test_expr_parens_mul() {
+        let mut iter = tokenize("(1+2)*3").into_iter().peekable();
+        let node = expr(&mut iter);
+        let expected = Node::Mul(
+            Box::new(Node::Add(Box::new(Node::Num(1)), Box::new(Node::Num(2)))),
+            Box::new(Node::Num(3)),
+        );
+        assert_eq!(node, expected);
+    }
+
+    #[test]
+    fn test_primary_parens() {
+        let mut iter = tokenize("(42)").into_iter().peekable();
+        let node = primary(&mut iter);
+        assert_eq!(node, Node::Num(42));
+    }
+
+    #[test]
+    fn test_expr_nested_parens() {
+        let mut iter = tokenize("((1+2))").into_iter().peekable();
+        let node = expr(&mut iter);
+        assert_eq!(
+            node,
+            Node::Add(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+        );
+    }
 }

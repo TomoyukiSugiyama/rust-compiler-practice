@@ -210,4 +210,42 @@ mod tests {
         let num_tok = head.next.as_ref().unwrap();
         expect_operator(num_tok, "123");
     }
+
+    #[test]
+    fn test_tokenize_parens() {
+        let kinds: Vec<TokenKind> = tokenize("(1+2)*3")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Operator('('),
+                TokenKind::Number(1),
+                TokenKind::Operator('+'),
+                TokenKind::Number(2),
+                TokenKind::Operator(')'),
+                TokenKind::Operator('*'),
+                TokenKind::Number(3),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_iter_eof_flag() {
+        let mut iter = tokenize("1").into_iter();
+        let one = iter.next().unwrap();
+        assert!(!at_eof(&one));
+        let eof = iter.next().unwrap();
+        assert!(at_eof(&eof));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_expect_operator_paren() {
+        let head = tokenize("(");
+        let paren = head.next.as_ref().unwrap();
+        assert_eq!(expect_operator(paren, "("), '(');
+    }
 }
