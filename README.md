@@ -1,9 +1,8 @@
 
 
 ```bash
-$ cargo run -- 12 > ./bin/test-arm64.s
-$ clang -arch arm64 -x assembler  ./bin/test-arm64.s -o ./bin/test
-$ ./bin/test
+$ cd rustc
+$ ./test/test.sh
 $ echo $?
 12
 ```
