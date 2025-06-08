@@ -101,6 +101,33 @@ pub fn tokenize(exp: &str) -> Token {
     head
 }
 
+/// An iterator over tokens (skips the initial Start sentinel)
+pub struct TokenIter {
+    current: Option<Token>,
+}
+
+impl Iterator for TokenIter {
+    type Item = Token;
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(mut tok) = self.current.take() {
+            self.current = tok.next.take().map(|b| *b);
+            Some(tok)
+        } else {
+            None
+        }
+    }
+}
+
+impl IntoIterator for Token {
+    type Item = Token;
+    type IntoIter = TokenIter;
+    fn into_iter(self) -> Self::IntoIter {
+        TokenIter {
+            current: self.next.map(|b| *b),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -4,29 +4,31 @@ use std::env;
 fn main() {
     let exp = env::args().nth(1).expect("Usage: program <exp>");
 
-    // Use tokenizer from library to split into numbers and operators
-    let mut token = tokenize(&exp);
+    let mut iter = tokenize(&exp).into_iter();
 
     println!(".section __TEXT,__text");
     println!(".globl _main");
     println!("_main:");
-    token = consume(token).unwrap();
-    let num = expect_number(&token, &exp);
+
+    // First number
+    let first_tok = iter.next().unwrap();
+    let num = expect_number(&first_tok, &exp);
     println!("    mov x0, #{}", num);
-    while !at_eof(&token) {
-        token = consume(token).unwrap();
-        if at_eof(&token) {
+
+    // Remaining operator-number pairs
+    while let Some(tok) = iter.next() {
+        if at_eof(&tok) {
             break;
         }
-        let op = expect_operator(&token, &exp);
-        token = consume(token).unwrap();
+        let op = expect_operator(&tok, &exp);
+        let num_tok = iter.next().unwrap();
+        let num = expect_number(&num_tok, &exp);
         if op == '+' {
-            let num = expect_number(&token, &exp);
             println!("    add x0, x0, #{}", num);
         } else {
-            let num = expect_number(&token, &exp);
             println!("    sub x0, x0, #{}", num);
         }
     }
+
     println!("    ret");
 }
