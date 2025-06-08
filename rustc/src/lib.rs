@@ -19,13 +19,6 @@ impl Token {
     }
 }
 
-pub fn new_token(kind: TokenKind, cur: Token) -> Token {
-    Token {
-        kind,
-        next: Some(Box::new(cur)),
-    }
-}
-
 pub fn consume(cur: Token) -> Option<Token> {
     // Unbox the next token if present
     cur.next.map(|boxed| *boxed)
@@ -67,20 +60,18 @@ pub fn tokenize(exp: &str) -> Token {
         } else if c.is_ascii_digit() {
             let mut num = 0u64;
             while let Some(&dch) = chars.peek() {
-                if dch.is_ascii_digit() {
-                    num = num
-                        .wrapping_mul(10)
-                        .wrapping_add(dch.to_digit(10).unwrap() as u64);
-                    chars.next();
-                } else {
+                if !dch.is_ascii_digit() {
                     break;
                 }
+                num = num
+                    .wrapping_mul(10)
+                    .wrapping_add(dch.to_digit(10).unwrap() as u64);
+                chars.next();
             }
             tail = tail.push(TokenKind::Number(num));
         } else if c == '+' || c == '-' {
-            let op = c;
             chars.next();
-            tail = tail.push(TokenKind::Operator(op));
+            tail = tail.push(TokenKind::Operator(c));
         } else {
             panic!("Invalid character in expression: {}", c);
         }
