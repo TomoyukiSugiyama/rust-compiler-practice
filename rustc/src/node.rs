@@ -1,7 +1,7 @@
 use crate::{TokenIter, TokenKind};
 use std::iter::Peekable;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Node {
     Num(u64),
     Add(Box<Node>, Box<Node>),
@@ -93,4 +93,38 @@ pub fn generate(node: &Node) {
     // function epilogue: pop final result into x0 and return
     println!("    ldr x0, [sp], #16");
     println!("    ret");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tokenize;
+
+    #[test]
+    fn test_primary() {
+        let mut iter = tokenize("42").into_iter().peekable();
+        let node = primary(&mut iter);
+        assert_eq!(node, Node::Num(42));
+    }
+
+    #[test]
+    fn test_expr_add_sub() {
+        let mut iter = tokenize("1+2").into_iter().peekable();
+        let node = expr(&mut iter);
+        assert_eq!(
+            node,
+            Node::Add(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+        );
+    }
+
+    #[test]
+    fn test_expr_precedence() {
+        let mut iter = tokenize("1+2*3").into_iter().peekable();
+        let node = expr(&mut iter);
+        let expected = Node::Add(
+            Box::new(Node::Num(1)),
+            Box::new(Node::Mul(Box::new(Node::Num(2)), Box::new(Node::Num(3)))),
+        );
+        assert_eq!(node, expected);
+    }
 }
