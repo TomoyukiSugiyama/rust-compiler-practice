@@ -20,4 +20,9 @@ assert() {
 
 assert 12 12
 assert 1 1
+assert 3 '1+2'
+assert 1 '4-3'
+assert 48 '1+50-3'
+assert 4 '1+2-3+4'
+
 echo "OK"
