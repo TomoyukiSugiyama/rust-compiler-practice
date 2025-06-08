@@ -1,3 +1,5 @@
+pub mod node;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
     Start,
@@ -83,7 +85,7 @@ pub fn tokenize(exp: &str) -> Token {
                 }
             }
             tail = tail.push(TokenKind::Number(num), start);
-        } else if c == '+' || c == '-' {
+        } else if c == '+' || c == '-' || c == '*' || c == '/' {
             let pos = i;
             chars.next();
             tail = tail.push(TokenKind::Operator(c), pos);
