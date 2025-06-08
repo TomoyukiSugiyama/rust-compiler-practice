@@ -1,5 +1,6 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
+    Start,
     Number(u64),
     Operator(char),
     Eof,
@@ -34,7 +35,7 @@ fn error_at(exp: &str, pos: usize, msg: &str) -> ! {
     // Print the input and a caret under the error position
     println!("{}", exp);
     println!("{}^ {}", " ".repeat(pos), msg);
-    std::process::exit(1);
+    panic!("{}", msg);
 }
 
 pub fn expect_number(cur: &Token, exp: &str) -> u64 {
@@ -61,7 +62,7 @@ pub fn at_eof(cur: &Token) -> bool {
 pub fn tokenize(exp: &str) -> Token {
     // Build linked list with a sentinel head (pos=0)
     let mut head = Token {
-        kind: TokenKind::Eof,
+        kind: TokenKind::Start,
         pos: 0,
         next: None,
     };
@@ -78,8 +79,9 @@ pub fn tokenize(exp: &str) -> Token {
             while let Some(&(_, dch)) = chars.peek() {
                 if dch.is_ascii_digit() {
                     num = num
-                        .wrapping_mul(10)
-                        .wrapping_add(dch.to_digit(10).unwrap() as u64);
+                        .checked_mul(10)
+                        .and_then(|n| n.checked_add(dch.to_digit(10).unwrap() as u64))
+                        .unwrap();
                     chars.next();
                 } else {
                     break;
@@ -97,4 +99,48 @@ pub fn tokenize(exp: &str) -> Token {
     // Append EOF token at end of input
     tail.push(TokenKind::Eof, exp.len());
     head
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tokenize() {
+        let head = tokenize("12 + 34 -5");
+        let mut t = &head;
+        let mut kinds: Vec<&TokenKind> = Vec::new();
+        while let Some(next) = &t.next {
+            t = next;
+            kinds.push(&t.kind);
+        }
+        assert_eq!(
+            kinds,
+            vec![
+                &TokenKind::Number(12),
+                &TokenKind::Operator('+'),
+                &TokenKind::Number(34),
+                &TokenKind::Operator('-'),
+                &TokenKind::Number(5),
+                &TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_expect_number_and_operator() {
+        let head = tokenize("1+2");
+        let num_tok = head.next.as_ref().unwrap();
+        assert_eq!(expect_number(num_tok, "1+2"), 1);
+        let op_tok = num_tok.next.as_ref().unwrap();
+        assert_eq!(expect_operator(op_tok, "1+2"), '+');
+    }
+
+    #[test]
+    fn test_at_eof() {
+        let head = tokenize("1");
+        let first = head.next.as_ref().unwrap();
+        let eof_tok = first.next.as_ref().unwrap();
+        assert!(at_eof(eof_tok));
+    }
 }
