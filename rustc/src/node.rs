@@ -55,56 +55,29 @@ fn primary(toks: &mut Peekable<TokenIter>) -> Node {
     }
 }
 
+// helper to push an immediate onto the stack
+fn push_imm(n: u64) {
+    println!("    mov x0, #{}", n);
+    println!("    str x0, [sp, #-16]!");
+}
+
+// helper to emit code for binary operations
+fn emit_binop(op: &str, lhs: &Node, rhs: &Node) {
+    generate(lhs);
+    generate(rhs);
+    println!("    ldr x1, [sp], #16");
+    println!("    ldr x0, [sp], #16");
+    println!("    {} x0, x0, x1", op);
+    println!("    str x0, [sp, #-16]!");
+}
+
+// main codegen entry: generate ARM64 for the AST
 pub fn generate(node: &Node) {
     match node {
-        Node::Num(n) => {
-            println!("    mov x0, #{}", n);
-            println!("    sub sp, sp, #16");
-            println!("    str x0, [sp]");
-        }
-        Node::Add(lhs, rhs) => {
-            generate(lhs);
-            generate(rhs);
-            println!("    ldr x1, [sp]");
-            println!("    add sp, sp, #16");
-            println!("    ldr x0, [sp]");
-            println!("    add sp, sp, #16");
-            println!("    add x0, x0, x1");
-            println!("    sub sp, sp, #16");
-            println!("    str x0, [sp]");
-        }
-        Node::Sub(lhs, rhs) => {
-            generate(lhs);
-            generate(rhs);
-            println!("    ldr x1, [sp]");
-            println!("    add sp, sp, #16");
-            println!("    ldr x0, [sp]");
-            println!("    add sp, sp, #16");
-            println!("    sub x0, x0, x1");
-            println!("    sub sp, sp, #16");
-            println!("    str x0, [sp]");
-        }
-        Node::Mul(lhs, rhs) => {
-            generate(lhs);
-            generate(rhs);
-            println!("    ldr x1, [sp]");
-            println!("    add sp, sp, #16");
-            println!("    ldr x0, [sp]");
-            println!("    add sp, sp, #16");
-            println!("    mul x0, x0, x1");
-            println!("    sub sp, sp, #16");
-            println!("    str x0, [sp]");
-        }
-        Node::Div(lhs, rhs) => {
-            generate(lhs);
-            generate(rhs);
-            println!("    ldr x1, [sp]");
-            println!("    add sp, sp, #16");
-            println!("    ldr x0, [sp]");
-            println!("    add sp, sp, #16");
-            println!("    sdiv x0, x0, x1");
-            println!("    sub sp, sp, #16");
-            println!("    str x0, [sp]");
-        }
+        Node::Num(n) => push_imm(*n),
+        Node::Add(lhs, rhs) => emit_binop("add", lhs, rhs),
+        Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),
+        Node::Mul(lhs, rhs) => emit_binop("mul", lhs, rhs),
+        Node::Div(lhs, rhs) => emit_binop("sdiv", lhs, rhs),
     }
 }
