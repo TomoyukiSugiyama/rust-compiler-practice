@@ -18,6 +18,7 @@ pub enum TokenKind {
     LParen,
     RParen,
     Eof,
+    Return,
 }
 
 #[derive(Debug)]
@@ -121,7 +122,11 @@ pub fn tokenize(exp: &str) -> Token {
                     break;
                 }
             }
-            tail = tail.push(TokenKind::Ident(ident), start);
+            if ident == "return" {
+                tail = tail.push(TokenKind::Return, start);
+            } else {
+                tail = tail.push(TokenKind::Ident(ident), start);
+            }
         } else {
             // Operators and delimiters
             let pos = i;

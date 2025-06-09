@@ -4,6 +4,8 @@ use std::iter::Peekable;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Node {
+    // Sequence of two statements: execute first, then second
+    Seq(Box<Node>, Box<Node>),
     Num(u64),
     Var(u64),
     Assign(Box<Node>, Box<Node>),
@@ -17,6 +19,7 @@ pub enum Node {
     Gt(Box<Node>, Box<Node>),
     Le(Box<Node>, Box<Node>),
     Ge(Box<Node>, Box<Node>),
+    Return(Box<Node>),
 }
 
 // program ::= stmt*
@@ -28,11 +31,30 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         }
         stmts.push(stmt(toks, vars));
     }
-    stmts.into_iter().next().unwrap()
+    // Fold statements into nested Seq nodes
+    let mut iter = stmts.into_iter();
+    let mut root = iter.next().unwrap();
+    for next in iter {
+        root = Node::Seq(Box::new(root), Box::new(next));
+    }
+    root
 }
 
-// stmt ::= expr ';'
+// stmt ::= expr ';' | 'return' expr ';'
 fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+    // return statement
+    if let Some(tok) = toks.peek() {
+        if tok.kind == TokenKind::Return {
+            toks.next();
+            let node = expr(toks, vars);
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::Semicolon {
+                panic!("expected ';' but found {:?}", tok.kind);
+            }
+            return Node::Return(Box::new(node));
+        }
+    }
+    // expression statement
     let node = expr(toks, vars);
     let tok = toks.next().unwrap();
     if tok.kind != TokenKind::Semicolon {

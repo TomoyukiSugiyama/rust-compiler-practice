@@ -54,13 +54,30 @@ fn emit_var(off: u64) {
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
+        Node::Seq(lhs, rhs) => {
+            gen_node(lhs);
+            // discard lhs result
+            println!("    ldr x0, [sp], #16");
+            gen_node(rhs);
+        }
         Node::Num(n) => push_imm(*n),
+        Node::Var(off) => emit_var(*off),
+        Node::Return(node) => {
+            gen_node(node);
+            // pop return value into x0
+            println!("    ldr x0, [sp], #16");
+            // restore stack pointer to frame pointer
+            println!("    mov sp, x29");
+            // restore frame pointer and link register
+            println!("    ldp x29, x30, [sp], #16");
+            // return
+            println!("    ret");
+        }
+        Node::Assign(lhs, rhs) => emit_assign(lhs, rhs),
         Node::Add(lhs, rhs) => emit_binop("add", lhs, rhs),
         Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),
         Node::Mul(lhs, rhs) => emit_binop("mul", lhs, rhs),
         Node::Div(lhs, rhs) => emit_binop("sdiv", lhs, rhs),
-        Node::Assign(lhs, rhs) => emit_assign(lhs, rhs),
-        Node::Var(off) => emit_var(*off),
         Node::Eq(lhs, rhs) => emit_cmp("eq", lhs, rhs),
         Node::Ne(lhs, rhs) => emit_cmp("ne", lhs, rhs),
         Node::Lt(lhs, rhs) => emit_cmp("lt", lhs, rhs),
