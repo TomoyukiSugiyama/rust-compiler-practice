@@ -62,9 +62,7 @@ fn gen_node(node: &Node) {
     }
 }
 
-/// Generate full ARM64 assembly for the AST, including prologue and epilogue.
-pub fn generate(node: &Node) {
-    // function prologue
+fn gen_prologue() {
     println!(".section __TEXT,__text");
     println!(".globl _main");
     println!("_main:");
@@ -73,13 +71,20 @@ pub fn generate(node: &Node) {
     println!("    mov x29, sp");
     // reserve space for 26 local variables (26*8 bytes)
     println!("    sub sp, sp, #208");
-    // generate body
-    gen_node(node);
-    // function epilogue: pop final result into x0 and return
+}
+
+fn gen_epilogue() {
     println!("    ldr x0, [sp], #16");
     // deallocate local variable region
     println!("    add sp, sp, #208");
     // restore frame pointer and return
     println!("    ldp x29, x30, [sp], #16");
     println!("    ret");
+}
+
+/// Generate full ARM64 assembly for the AST, including prologue and epilogue.
+pub fn generate(node: &Node) {
+    gen_prologue();
+    gen_node(node);
+    gen_epilogue();
 }
