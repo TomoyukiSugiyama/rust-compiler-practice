@@ -35,11 +35,7 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let node = expr(toks, vars);
     let tok = toks.next().unwrap();
-    if let TokenKind::Operator(ref op) = tok.kind {
-        if op == ";" {
-            return node;
-        }
-    } else {
+    if tok.kind != TokenKind::Semicolon {
         panic!("expected ';' but found {:?}", tok.kind);
     }
     node
@@ -54,12 +50,10 @@ pub fn expr(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 fn assign(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let mut lhs = equality(toks, vars);
     if let Some(tok) = toks.peek() {
-        if let TokenKind::Operator(ref op) = tok.kind {
-            if op == "=" {
-                toks.next();
-                let rhs = assign(toks, vars);
-                lhs = Node::Assign(Box::new(lhs), Box::new(rhs));
-            }
+        if tok.kind == TokenKind::Assign {
+            toks.next();
+            let rhs = assign(toks, vars);
+            lhs = Node::Assign(Box::new(lhs), Box::new(rhs));
         }
     }
     lhs
@@ -69,16 +63,14 @@ fn assign(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 fn equality(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let mut lhs = relational(toks, vars);
     while let Some(tok) = toks.peek() {
-        if let TokenKind::Operator(ref op) = tok.kind {
-            if op == "==" {
-                toks.next();
-                lhs = Node::Eq(Box::new(lhs), Box::new(relational(toks, vars)));
-                continue;
-            } else if op == "!=" {
-                toks.next();
-                lhs = Node::Ne(Box::new(lhs), Box::new(relational(toks, vars)));
-                continue;
-            }
+        if tok.kind == TokenKind::EqEq {
+            toks.next();
+            lhs = Node::Eq(Box::new(lhs), Box::new(relational(toks, vars)));
+            continue;
+        } else if tok.kind == TokenKind::Ne {
+            toks.next();
+            lhs = Node::Ne(Box::new(lhs), Box::new(relational(toks, vars)));
+            continue;
         }
         break;
     }
@@ -89,24 +81,22 @@ fn equality(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 fn relational(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let mut lhs = add(toks, vars);
     while let Some(tok) = toks.peek() {
-        if let TokenKind::Operator(ref op) = tok.kind {
-            if op == "<" {
-                toks.next();
-                lhs = Node::Lt(Box::new(lhs), Box::new(add(toks, vars)));
-                continue;
-            } else if op == ">" {
-                toks.next();
-                lhs = Node::Gt(Box::new(lhs), Box::new(add(toks, vars)));
-                continue;
-            } else if op == "<=" {
-                toks.next();
-                lhs = Node::Le(Box::new(lhs), Box::new(add(toks, vars)));
-                continue;
-            } else if op == ">=" {
-                toks.next();
-                lhs = Node::Ge(Box::new(lhs), Box::new(add(toks, vars)));
-                continue;
-            }
+        if tok.kind == TokenKind::Lt {
+            toks.next();
+            lhs = Node::Lt(Box::new(lhs), Box::new(add(toks, vars)));
+            continue;
+        } else if tok.kind == TokenKind::Gt {
+            toks.next();
+            lhs = Node::Gt(Box::new(lhs), Box::new(add(toks, vars)));
+            continue;
+        } else if tok.kind == TokenKind::Le {
+            toks.next();
+            lhs = Node::Le(Box::new(lhs), Box::new(add(toks, vars)));
+            continue;
+        } else if tok.kind == TokenKind::Ge {
+            toks.next();
+            lhs = Node::Ge(Box::new(lhs), Box::new(add(toks, vars)));
+            continue;
         }
         break;
     }
@@ -117,16 +107,14 @@ fn relational(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 fn add(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let mut lhs = mul(toks, vars);
     while let Some(tok) = toks.peek() {
-        if let TokenKind::Operator(ref op) = tok.kind {
-            if op == "+" {
-                toks.next();
-                lhs = Node::Add(Box::new(lhs), Box::new(mul(toks, vars)));
-                continue;
-            } else if op == "-" {
-                toks.next();
-                lhs = Node::Sub(Box::new(lhs), Box::new(mul(toks, vars)));
-                continue;
-            }
+        if tok.kind == TokenKind::Plus {
+            toks.next();
+            lhs = Node::Add(Box::new(lhs), Box::new(mul(toks, vars)));
+            continue;
+        } else if tok.kind == TokenKind::Minus {
+            toks.next();
+            lhs = Node::Sub(Box::new(lhs), Box::new(mul(toks, vars)));
+            continue;
         }
         break;
     }
@@ -137,16 +125,14 @@ fn add(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 fn mul(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let mut lhs = unary(toks, vars);
     while let Some(tok) = toks.peek() {
-        if let TokenKind::Operator(ref op) = tok.kind {
-            if op == "*" {
-                toks.next();
-                lhs = Node::Mul(Box::new(lhs), Box::new(unary(toks, vars)));
-                continue;
-            } else if op == "/" {
-                toks.next();
-                lhs = Node::Div(Box::new(lhs), Box::new(unary(toks, vars)));
-                continue;
-            }
+        if tok.kind == TokenKind::Star {
+            toks.next();
+            lhs = Node::Mul(Box::new(lhs), Box::new(unary(toks, vars)));
+            continue;
+        } else if tok.kind == TokenKind::Slash {
+            toks.next();
+            lhs = Node::Div(Box::new(lhs), Box::new(unary(toks, vars)));
+            continue;
         }
         break;
     }
@@ -156,14 +142,12 @@ fn mul(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 // unary ::= ('+' | '-')? primary
 fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     if let Some(tok) = toks.peek() {
-        if let TokenKind::Operator(ref op) = tok.kind {
-            if op == "+" {
-                toks.next();
-                return primary(toks, vars);
-            } else if op == "-" {
-                toks.next();
-                return Node::Sub(Box::new(Node::Num(0)), Box::new(primary(toks, vars)));
-            }
+        if tok.kind == TokenKind::Plus {
+            toks.next();
+            return primary(toks, vars);
+        } else if tok.kind == TokenKind::Minus {
+            toks.next();
+            return Node::Sub(Box::new(Node::Num(0)), Box::new(primary(toks, vars)));
         }
     }
     primary(toks, vars)
@@ -174,17 +158,13 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let tok = toks.next().unwrap();
     match tok.kind {
         TokenKind::Number(n) => Node::Num(n),
-        TokenKind::Operator(ref op) if op == "(" => {
+        TokenKind::LParen => {
             // Parse sub-expression
             let node = expr(toks, vars);
             // Expect closing ')'
             let closing = toks.next().unwrap();
-            if let TokenKind::Operator(ref op2) = closing.kind {
-                if op2 == ")" {
-                    node
-                } else {
-                    panic!("expected ')' but found {:?}", closing.kind);
-                }
+            if closing.kind == TokenKind::RParen {
+                node
             } else {
                 panic!("expected ')' but found {:?}", closing.kind);
             }

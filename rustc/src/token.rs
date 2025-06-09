@@ -2,8 +2,21 @@
 pub enum TokenKind {
     Start,
     Number(u64),
-    Operator(String),
     Ident(String),
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    EqEq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Assign,
+    Semicolon,
+    LParen,
+    RParen,
     Eof,
 }
 
@@ -41,9 +54,20 @@ pub fn expect_number(cur: &Token, exp: &str) -> u64 {
     }
 }
 
-pub fn expect_operator(cur: &Token, exp: &str) -> String {
+pub fn expect_operator(cur: &Token, exp: &str) -> TokenKind {
     match &cur.kind {
-        TokenKind::Operator(c) => c.clone(),
+        TokenKind::Plus => TokenKind::Plus,
+        TokenKind::Minus => TokenKind::Minus,
+        TokenKind::Star => TokenKind::Star,
+        TokenKind::Slash => TokenKind::Slash,
+        TokenKind::EqEq => TokenKind::EqEq,
+        TokenKind::Ne => TokenKind::Ne,
+        TokenKind::Le => TokenKind::Le,
+        TokenKind::Ge => TokenKind::Ge,
+        TokenKind::Assign => TokenKind::Assign,
+        TokenKind::Semicolon => TokenKind::Semicolon,
+        TokenKind::LParen => TokenKind::LParen,
+        TokenKind::RParen => TokenKind::RParen,
         _ => error_at(exp, cur.pos, "演算子ではありません"),
     }
 }
@@ -53,7 +77,7 @@ pub fn at_eof(cur: &Token) -> bool {
 }
 
 /// Tokenizes an arithmetic expression into a linked list of tokens.
-/// Supports positive integers and the '+' and '-' operators.
+/// Supports positive integers, identifiers, operators, and delimiters.
 /// Returns the head `Token`, whose chained `next` pointers end with an `Eof` token.
 pub fn tokenize(exp: &str) -> Token {
     // Build linked list with a sentinel head (pos=0)
@@ -97,48 +121,78 @@ pub fn tokenize(exp: &str) -> Token {
             }
             tail = tail.push(TokenKind::Ident(ident), start);
         } else {
-            // Operators: ==, !=, <=, >= or single-char
+            // Operators and delimiters
             let pos = i;
-            let op = if c == '=' {
-                chars.next();
-                if let Some(&(_, '=')) = chars.peek() {
+            let kind = match c {
+                '=' => {
                     chars.next();
-                    "==".to_string()
-                } else {
-                    "=".to_string()
+                    if let Some(&(_, '=')) = chars.peek() {
+                        chars.next();
+                        TokenKind::EqEq
+                    } else {
+                        TokenKind::Assign
+                    }
                 }
-            } else if c == '!' {
-                chars.next();
-                if let Some(&(_, '=')) = chars.peek() {
+                '!' => {
                     chars.next();
-                    "!=".to_string()
-                } else {
+                    if let Some(&(_, '=')) = chars.peek() {
+                        chars.next();
+                        TokenKind::Ne
+                    } else {
+                        error_at(exp, i, "無効な文字です");
+                    }
+                }
+                '<' => {
+                    chars.next();
+                    if let Some(&(_, '=')) = chars.peek() {
+                        chars.next();
+                        TokenKind::Le
+                    } else {
+                        TokenKind::Lt
+                    }
+                }
+                '>' => {
+                    chars.next();
+                    if let Some(&(_, '=')) = chars.peek() {
+                        chars.next();
+                        TokenKind::Ge
+                    } else {
+                        TokenKind::Gt
+                    }
+                }
+                '+' => {
+                    chars.next();
+                    TokenKind::Plus
+                }
+                '-' => {
+                    chars.next();
+                    TokenKind::Minus
+                }
+                '*' => {
+                    chars.next();
+                    TokenKind::Star
+                }
+                '/' => {
+                    chars.next();
+                    TokenKind::Slash
+                }
+                ';' => {
+                    chars.next();
+                    TokenKind::Semicolon
+                }
+                '(' => {
+                    chars.next();
+                    TokenKind::LParen
+                }
+                ')' => {
+                    chars.next();
+                    TokenKind::RParen
+                }
+                _ => {
                     error_at(exp, i, "無効な文字です");
                 }
-            } else if c == '<' {
-                chars.next();
-                if let Some(&(_, '=')) = chars.peek() {
-                    chars.next();
-                    "<=".to_string()
-                } else {
-                    "<".to_string()
-                }
-            } else if c == '>' {
-                chars.next();
-                if let Some(&(_, '=')) = chars.peek() {
-                    chars.next();
-                    ">=".to_string()
-                } else {
-                    ">".to_string()
-                }
-            } else if "+-*/();".contains(c) {
-                let s = c.to_string();
-                chars.next();
-                s
-            } else {
-                error_at(exp, i, "無効な文字です");
             };
-            tail = tail.push(TokenKind::Operator(op), pos);
+            tail = tail.push(kind, pos);
         }
     }
     // Append EOF token at end of input
@@ -190,9 +244,9 @@ mod tests {
             kinds,
             vec![
                 &TokenKind::Number(12),
-                &TokenKind::Operator("+".to_string()),
+                &TokenKind::Plus,
                 &TokenKind::Number(34),
-                &TokenKind::Operator("-".to_string()),
+                &TokenKind::Minus,
                 &TokenKind::Number(5),
                 &TokenKind::Eof,
             ]
@@ -205,7 +259,7 @@ mod tests {
         let num_tok = head.next.as_ref().unwrap();
         assert_eq!(expect_number(num_tok, "1+2"), 1);
         let op_tok = num_tok.next.as_ref().unwrap();
-        assert_eq!(expect_operator(op_tok, "1+2"), "+");
+        assert_eq!(expect_operator(op_tok, "1+2"), TokenKind::Plus);
     }
 
     #[test]
@@ -226,9 +280,9 @@ mod tests {
             kinds,
             vec![
                 TokenKind::Number(12),
-                TokenKind::Operator("+".to_string()),
+                TokenKind::Plus,
                 TokenKind::Number(34),
-                TokenKind::Operator("-".to_string()),
+                TokenKind::Minus,
                 TokenKind::Number(5),
                 TokenKind::Eof,
             ]
@@ -266,12 +320,12 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                TokenKind::Operator("(".to_string()),
+                TokenKind::LParen,
                 TokenKind::Number(1),
-                TokenKind::Operator("+".to_string()),
+                TokenKind::Plus,
                 TokenKind::Number(2),
-                TokenKind::Operator(")".to_string()),
-                TokenKind::Operator("*".to_string()),
+                TokenKind::RParen,
+                TokenKind::Star,
                 TokenKind::Number(3),
                 TokenKind::Eof,
             ]
@@ -292,7 +346,7 @@ mod tests {
     fn test_expect_operator_paren() {
         let head = tokenize("(");
         let paren = head.next.as_ref().unwrap();
-        assert_eq!(expect_operator(paren, "("), "(".to_string());
+        assert_eq!(expect_operator(paren, "("), TokenKind::LParen);
     }
 
     #[test]
@@ -318,18 +372,18 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                TokenKind::Operator("+".to_string()),
-                TokenKind::Operator("-".to_string()),
-                TokenKind::Operator("*".to_string()),
-                TokenKind::Operator("/".to_string()),
-                TokenKind::Operator("==".to_string()),
-                TokenKind::Operator("!=".to_string()),
-                TokenKind::Operator("<=".to_string()),
-                TokenKind::Operator(">=".to_string()),
-                TokenKind::Operator("=".to_string()),
-                TokenKind::Operator(";".to_string()),
-                TokenKind::Operator("(".to_string()),
-                TokenKind::Operator(")".to_string()),
+                TokenKind::Plus,
+                TokenKind::Minus,
+                TokenKind::Star,
+                TokenKind::Slash,
+                TokenKind::EqEq,
+                TokenKind::Ne,
+                TokenKind::Le,
+                TokenKind::Ge,
+                TokenKind::Assign,
+                TokenKind::Semicolon,
+                TokenKind::LParen,
+                TokenKind::RParen,
                 TokenKind::Eof,
             ]
         );
