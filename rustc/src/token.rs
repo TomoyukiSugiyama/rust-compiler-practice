@@ -23,6 +23,8 @@ pub enum TokenKind {
     Else,
     While,
     For,
+    LBrace,
+    RBrace,
 }
 
 #[derive(Debug)]
@@ -184,6 +186,14 @@ pub fn tokenize(exp: &str) -> Token {
                     chars.next();
                     TokenKind::RParen
                 }
+                '{' => {
+                    chars.next();
+                    TokenKind::LBrace
+                }
+                '}' => {
+                    chars.next();
+                    TokenKind::RBrace
+                }
                 _ => {
                     error_at(exp, i, "無効な文字です");
                 }
@@ -339,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_tokenize_all_operators() {
-        let input = "+ - * / == != < <= > >= = ; ( ) return if else while for";
+        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for";
         let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
         assert_eq!(
             kinds,
@@ -358,6 +368,8 @@ mod tests {
                 TokenKind::Semicolon,
                 TokenKind::LParen,
                 TokenKind::RParen,
+                TokenKind::LBrace,
+                TokenKind::RBrace,
                 TokenKind::Return,
                 TokenKind::If,
                 TokenKind::Else,

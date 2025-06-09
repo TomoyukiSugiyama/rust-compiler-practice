@@ -44,10 +44,11 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 }
 
 // stmt ::= expr ';' |
-// 'return' expr ';' |
-// 'if' '(' expr ')' stmt ('else' stmt)? |
-// 'while' '(' expr ')' stmt |
-// 'for' '(' expr ';' expr ';' expr ')' stmt
+//          '{' stmt* '}' |
+//          'return' expr ';' |
+//          'if' '(' expr ')' stmt ('else' stmt)? |
+//          'while' '(' expr ')' stmt |
+//          'for' '(' expr ';' expr ';' expr ')' stmt
 fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     // return statement
     if let Some(tok) = toks.peek() {
@@ -59,6 +60,26 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 panic!("expected ';' but found {:?}", tok.kind);
             }
             return Node::Return(Box::new(node));
+        }
+        if tok.kind == TokenKind::LBrace {
+            toks.next();
+            let mut stmts = Vec::new();
+            while let Some(tok) = toks.peek() {
+                if tok.kind == TokenKind::RBrace {
+                    break;
+                }
+                stmts.push(stmt(toks, vars));
+            }
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::RBrace {
+                panic!("expected '}}' but found {:?}", tok.kind);
+            }
+            let mut iter = stmts.into_iter();
+            let mut root = iter.next().unwrap();
+            for next in iter {
+                root = Node::Seq(Box::new(root), Box::new(next));
+            }
+            return root;
         }
         if tok.kind == TokenKind::If {
             // parse if statement: 'if' '(' expr ')' stmt ('else' stmt)?

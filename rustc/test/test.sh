@@ -55,4 +55,5 @@ assert 3 'if ( 1 == 1 ) return 3; else return 2;'
 assert 2 'if ( 1 == 2 ) return 3; else return 2;'
 assert 10 'a=0; while ( a < 10 ) a=a+1; return a;'
 assert 10 'a=0; for ( i=0; i<10; i=i+1 ) a=a+1; return a;'
+assert 4 'a=0; b=1; for ( i=0; i<3; i=i+1 ) { a=a+1; b=b+1; } return b;'
 echo "OK"
