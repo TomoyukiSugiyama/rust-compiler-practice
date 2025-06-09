@@ -55,26 +55,6 @@ pub fn expect_number(cur: &Token, exp: &str) -> u64 {
     }
 }
 
-pub fn expect_operator(cur: &Token, exp: &str) -> TokenKind {
-    match &cur.kind {
-        TokenKind::Plus => TokenKind::Plus,
-        TokenKind::Minus => TokenKind::Minus,
-        TokenKind::Star => TokenKind::Star,
-        TokenKind::Slash => TokenKind::Slash,
-        TokenKind::EqEq => TokenKind::EqEq,
-        TokenKind::Ne => TokenKind::Ne,
-        TokenKind::Lt => TokenKind::Lt,
-        TokenKind::Le => TokenKind::Le,
-        TokenKind::Gt => TokenKind::Gt,
-        TokenKind::Ge => TokenKind::Ge,
-        TokenKind::Assign => TokenKind::Assign,
-        TokenKind::Semicolon => TokenKind::Semicolon,
-        TokenKind::LParen => TokenKind::LParen,
-        TokenKind::RParen => TokenKind::RParen,
-        _ => error_at(exp, cur.pos, "演算子ではありません"),
-    }
-}
-
 pub fn at_eof(cur: &Token) -> bool {
     matches!(&cur.kind, TokenKind::Eof)
 }
@@ -261,20 +241,21 @@ mod tests {
     }
 
     #[test]
-    fn test_expect_number_and_operator() {
-        let head = tokenize("1+2");
-        let num_tok = head.next.as_ref().unwrap();
-        assert_eq!(expect_number(num_tok, "1+2"), 1);
-        let op_tok = num_tok.next.as_ref().unwrap();
-        assert_eq!(expect_operator(op_tok, "1+2"), TokenKind::Plus);
-    }
-
-    #[test]
     fn test_at_eof() {
         let head = tokenize("1");
         let first = head.next.as_ref().unwrap();
         let eof_tok = first.next.as_ref().unwrap();
         assert!(at_eof(eof_tok));
+    }
+
+    #[test]
+    fn test_iter_eof_flag() {
+        let mut iter = tokenize("1").into_iter();
+        let one = iter.next().unwrap();
+        assert!(!at_eof(&one));
+        let eof = iter.next().unwrap();
+        assert!(at_eof(&eof));
+        assert!(iter.next().is_none());
     }
 
     #[test]
@@ -311,14 +292,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "演算子ではありません")]
-    fn test_expect_operator_panic() {
-        let head = tokenize("123");
-        let num_tok = head.next.as_ref().unwrap();
-        expect_operator(num_tok, "123");
-    }
-
-    #[test]
     fn test_tokenize_parens() {
         let kinds: Vec<TokenKind> = tokenize("(1+2)*3")
             .into_iter()
@@ -340,23 +313,6 @@ mod tests {
     }
 
     #[test]
-    fn test_iter_eof_flag() {
-        let mut iter = tokenize("1").into_iter();
-        let one = iter.next().unwrap();
-        assert!(!at_eof(&one));
-        let eof = iter.next().unwrap();
-        assert!(at_eof(&eof));
-        assert!(iter.next().is_none());
-    }
-
-    #[test]
-    fn test_expect_operator_paren() {
-        let head = tokenize("(");
-        let paren = head.next.as_ref().unwrap();
-        assert_eq!(expect_operator(paren, "("), TokenKind::LParen);
-    }
-
-    #[test]
     fn test_tokenize_ident() {
         let kinds: Vec<TokenKind> = tokenize("foo bar")
             .into_iter()
@@ -374,7 +330,7 @@ mod tests {
 
     #[test]
     fn test_tokenize_all_operators() {
-        let input = "+ - * / == != < <= > >= = ; ( )";
+        let input = "+ - * / == != < <= > >= = ; ( ) return";
         let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
         assert_eq!(
             kinds,
@@ -393,6 +349,7 @@ mod tests {
                 TokenKind::Semicolon,
                 TokenKind::LParen,
                 TokenKind::RParen,
+                TokenKind::Return,
                 TokenKind::Eof,
             ]
         );
