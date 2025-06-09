@@ -8,23 +8,125 @@ pub enum Node {
     Sub(Box<Node>, Box<Node>),
     Mul(Box<Node>, Box<Node>),
     Div(Box<Node>, Box<Node>),
+    Assign(Box<Node>, Box<Node>),
+    Eq(Box<Node>, Box<Node>),
+    Ne(Box<Node>, Box<Node>),
+    Lt(Box<Node>, Box<Node>),
+    Gt(Box<Node>, Box<Node>),
+    Le(Box<Node>, Box<Node>),
+    Ge(Box<Node>, Box<Node>),
+    Ident(String),
 }
 
-// expr ::= mul (('+' | '-') mul)*
+// program ::= stmt*
+pub fn program(toks: &mut Peekable<TokenIter>) -> Node {
+    let mut stmts = Vec::new();
+    while let Some(tok) = toks.peek() {
+        if let TokenKind::Eof = tok.kind {
+            break;
+        }
+        stmts.push(stmt(toks));
+    }
+    stmts.into_iter().next().unwrap()
+}
+
+// stmt ::= expr ';'
+fn stmt(toks: &mut Peekable<TokenIter>) -> Node {
+    let node = expr(toks);
+    let tok = toks.next().unwrap();
+    if let TokenKind::Operator(ref op) = tok.kind {
+        if op == ";" {
+            return node;
+        }
+    } else {
+        panic!("expected ';' but found {:?}", tok.kind);
+    }
+    node
+}
+
+// expr ::= assign
 pub fn expr(toks: &mut Peekable<TokenIter>) -> Node {
+    assign(toks)
+}
+
+// assign ::= equality ('=' assign)?
+fn assign(toks: &mut Peekable<TokenIter>) -> Node {
+    let mut lhs = equality(toks);
+    if let Some(tok) = toks.peek() {
+        if let TokenKind::Operator(ref op) = tok.kind {
+            if op == "=" {
+                toks.next();
+                lhs = Node::Assign(Box::new(lhs), Box::new(assign(toks)));
+            }
+        }
+    }
+    lhs
+}
+
+// equality ::= relational (( '==' | '!=' ) relational)*
+fn equality(toks: &mut Peekable<TokenIter>) -> Node {
+    let mut lhs = relational(toks);
+    while let Some(tok) = toks.peek() {
+        if let TokenKind::Operator(ref op) = tok.kind {
+            if op == "==" {
+                toks.next();
+                lhs = Node::Eq(Box::new(lhs), Box::new(relational(toks)));
+                continue;
+            } else if op == "!=" {
+                toks.next();
+                lhs = Node::Ne(Box::new(lhs), Box::new(relational(toks)));
+                continue;
+            }
+        }
+        break;
+    }
+    lhs
+}
+
+// relational ::= add (('<' | '>' | '<=' | '>=') add)*
+fn relational(toks: &mut Peekable<TokenIter>) -> Node {
+    let mut lhs = add(toks);
+    while let Some(tok) = toks.peek() {
+        if let TokenKind::Operator(ref op) = tok.kind {
+            if op == "<" {
+                toks.next();
+                lhs = Node::Lt(Box::new(lhs), Box::new(add(toks)));
+                continue;
+            } else if op == ">" {
+                toks.next();
+                lhs = Node::Gt(Box::new(lhs), Box::new(add(toks)));
+                continue;
+            } else if op == "<=" {
+                toks.next();
+                lhs = Node::Le(Box::new(lhs), Box::new(add(toks)));
+                continue;
+            } else if op == ">=" {
+                toks.next();
+                lhs = Node::Ge(Box::new(lhs), Box::new(add(toks)));
+                continue;
+            }
+        }
+        break;
+    }
+    lhs
+}
+
+// add ::= mul (('+' | '-') mul)*
+fn add(toks: &mut Peekable<TokenIter>) -> Node {
     let mut lhs = mul(toks);
     while let Some(tok) = toks.peek() {
-        match tok.kind {
-            TokenKind::Operator('+') => {
+        if let TokenKind::Operator(ref op) = tok.kind {
+            if op == "+" {
                 toks.next();
                 lhs = Node::Add(Box::new(lhs), Box::new(mul(toks)));
-            }
-            TokenKind::Operator('-') => {
+                continue;
+            } else if op == "-" {
                 toks.next();
                 lhs = Node::Sub(Box::new(lhs), Box::new(mul(toks)));
+                continue;
             }
-            _ => break,
         }
+        break;
     }
     lhs
 }
@@ -33,17 +135,18 @@ pub fn expr(toks: &mut Peekable<TokenIter>) -> Node {
 fn mul(toks: &mut Peekable<TokenIter>) -> Node {
     let mut lhs = unary(toks);
     while let Some(tok) = toks.peek() {
-        match tok.kind {
-            TokenKind::Operator('*') => {
+        if let TokenKind::Operator(ref op) = tok.kind {
+            if op == "*" {
                 toks.next();
                 lhs = Node::Mul(Box::new(lhs), Box::new(unary(toks)));
-            }
-            TokenKind::Operator('/') => {
+                continue;
+            } else if op == "/" {
                 toks.next();
                 lhs = Node::Div(Box::new(lhs), Box::new(unary(toks)));
+                continue;
             }
-            _ => break,
         }
+        break;
     }
     lhs
 }
@@ -51,36 +154,41 @@ fn mul(toks: &mut Peekable<TokenIter>) -> Node {
 // unary ::= ('+' | '-')? primary
 fn unary(toks: &mut Peekable<TokenIter>) -> Node {
     if let Some(tok) = toks.peek() {
-        match tok.kind {
-            TokenKind::Operator('+') => {
+        if let TokenKind::Operator(ref op) = tok.kind {
+            if op == "+" {
                 toks.next();
                 return primary(toks);
-            }
-            TokenKind::Operator('-') => {
+            } else if op == "-" {
                 toks.next();
                 return Node::Sub(Box::new(Node::Num(0)), Box::new(primary(toks)));
             }
-            _ => {}
         }
     }
     primary(toks)
 }
 
-// primary ::= number | '(' expr ')'
+// primary ::= number | '(' expr ')' | ident
 fn primary(toks: &mut Peekable<TokenIter>) -> Node {
     let tok = toks.next().unwrap();
     match tok.kind {
         TokenKind::Number(n) => Node::Num(n),
-        TokenKind::Operator('(') => {
+        TokenKind::Operator(ref op) if op == "(" => {
             // Parse sub-expression
             let node = expr(toks);
             // Expect closing ')'
             let closing = toks.next().unwrap();
-            if let TokenKind::Operator(')') = closing.kind {
-                node
+            if let TokenKind::Operator(ref op2) = closing.kind {
+                if op2 == ")" {
+                    node
+                } else {
+                    panic!("expected ')' but found {:?}", closing.kind);
+                }
             } else {
                 panic!("expected ')' but found {:?}", closing.kind);
             }
+        }
+        TokenKind::Ident(ref ident) => {
+            Node::Ident(ident.clone())
         }
         _ => unreachable!(),
     }
@@ -110,6 +218,7 @@ fn gen_node(node: &Node) {
         Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),
         Node::Mul(lhs, rhs) => emit_binop("mul", lhs, rhs),
         Node::Div(lhs, rhs) => emit_binop("sdiv", lhs, rhs),
+        _ => unimplemented!("codegen for {:?}", node),
     }
 }
 

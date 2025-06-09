@@ -7,7 +7,8 @@ fn main() {
 
     let mut iter = tokenize(&exp).into_iter().peekable();
 
-    let node = expr(&mut iter);
+    let node = program(&mut iter);
+    // let node = expr(&mut iter);
     // Generate the program
     generate(&node);
 }

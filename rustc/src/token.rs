@@ -2,7 +2,8 @@
 pub enum TokenKind {
     Start,
     Number(u64),
-    Operator(char),
+    Operator(String),
+    Ident(String),
     Eof,
 }
 
@@ -40,9 +41,9 @@ pub fn expect_number(cur: &Token, exp: &str) -> u64 {
     }
 }
 
-pub fn expect_operator(cur: &Token, exp: &str) -> char {
+pub fn expect_operator(cur: &Token, exp: &str) -> String {
     match &cur.kind {
-        TokenKind::Operator(c) => *c,
+        TokenKind::Operator(c) => c.clone(),
         _ => error_at(exp, cur.pos, "演算子ではありません"),
     }
 }
@@ -83,16 +84,61 @@ pub fn tokenize(exp: &str) -> Token {
                 }
             }
             tail = tail.push(TokenKind::Number(num), start);
-        } else if c == '+' || c == '-' || c == '*' || c == '/' {
-            let pos = i;
-            chars.next();
-            tail = tail.push(TokenKind::Operator(c), pos);
-        } else if c == '(' || c == ')' {
-            let pos = i;
-            chars.next();
-            tail = tail.push(TokenKind::Operator(c), pos);
+        } else if c.is_ascii_alphabetic() {
+            let start = i;
+            let mut ident = String::new();
+            while let Some(&(_, dch)) = chars.peek() {
+                if dch.is_ascii_alphanumeric() {
+                    ident.push(dch);
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+            tail = tail.push(TokenKind::Ident(ident), start);
         } else {
-            error_at(exp, i, "無効な文字です");
+            // Operators: ==, !=, <=, >= or single-char
+            let pos = i;
+            let op = if c == '=' {
+                chars.next();
+                if let Some(&(_, '=')) = chars.peek() {
+                    chars.next();
+                    "==".to_string()
+                } else {
+                    "=".to_string()
+                }
+            } else if c == '!' {
+                chars.next();
+                if let Some(&(_, '=')) = chars.peek() {
+                    chars.next();
+                    "!=".to_string()
+                } else {
+                    error_at(exp, i, "無効な文字です");
+                }
+            } else if c == '<' {
+                chars.next();
+                if let Some(&(_, '=')) = chars.peek() {
+                    chars.next();
+                    "<=".to_string()
+                } else {
+                    "<".to_string()
+                }
+            } else if c == '>' {
+                chars.next();
+                if let Some(&(_, '=')) = chars.peek() {
+                    chars.next();
+                    ">=".to_string()
+                } else {
+                    ">".to_string()
+                }
+            } else if "+-*/();".contains(c) {
+                let s = c.to_string();
+                chars.next();
+                s
+            } else {
+                error_at(exp, i, "無効な文字です");
+            };
+            tail = tail.push(TokenKind::Operator(op), pos);
         }
     }
     // Append EOF token at end of input
@@ -144,9 +190,9 @@ mod tests {
             kinds,
             vec![
                 &TokenKind::Number(12),
-                &TokenKind::Operator('+'),
+                &TokenKind::Operator("+".to_string()),
                 &TokenKind::Number(34),
-                &TokenKind::Operator('-'),
+                &TokenKind::Operator("-".to_string()),
                 &TokenKind::Number(5),
                 &TokenKind::Eof,
             ]
@@ -159,7 +205,7 @@ mod tests {
         let num_tok = head.next.as_ref().unwrap();
         assert_eq!(expect_number(num_tok, "1+2"), 1);
         let op_tok = num_tok.next.as_ref().unwrap();
-        assert_eq!(expect_operator(op_tok, "1+2"), '+');
+        assert_eq!(expect_operator(op_tok, "1+2"), "+");
     }
 
     #[test]
@@ -180,9 +226,9 @@ mod tests {
             kinds,
             vec![
                 TokenKind::Number(12),
-                TokenKind::Operator('+'),
+                TokenKind::Operator("+".to_string()),
                 TokenKind::Number(34),
-                TokenKind::Operator('-'),
+                TokenKind::Operator("-".to_string()),
                 TokenKind::Number(5),
                 TokenKind::Eof,
             ]
@@ -192,7 +238,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "無効な文字です")]
     fn test_tokenize_panic_on_invalid_char() {
-        let _ = tokenize("a");
+        let _ = tokenize("?");
     }
 
     #[test]
@@ -220,12 +266,12 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                TokenKind::Operator('('),
+                TokenKind::Operator("(".to_string()),
                 TokenKind::Number(1),
-                TokenKind::Operator('+'),
+                TokenKind::Operator("+".to_string()),
                 TokenKind::Number(2),
-                TokenKind::Operator(')'),
-                TokenKind::Operator('*'),
+                TokenKind::Operator(")".to_string()),
+                TokenKind::Operator("*".to_string()),
                 TokenKind::Number(3),
                 TokenKind::Eof,
             ]
@@ -246,6 +292,46 @@ mod tests {
     fn test_expect_operator_paren() {
         let head = tokenize("(");
         let paren = head.next.as_ref().unwrap();
-        assert_eq!(expect_operator(paren, "("), '(');
+        assert_eq!(expect_operator(paren, "("), "(".to_string());
+    }
+
+    #[test]
+    fn test_tokenize_ident() {
+        let kinds: Vec<TokenKind> = tokenize("foo bar")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Ident("foo".to_string()),
+                TokenKind::Ident("bar".to_string()),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_all_operators() {
+        let input = "+ - * / == != <= >= = ; ( )";
+        let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Operator("+".to_string()),
+                TokenKind::Operator("-".to_string()),
+                TokenKind::Operator("*".to_string()),
+                TokenKind::Operator("/".to_string()),
+                TokenKind::Operator("==".to_string()),
+                TokenKind::Operator("!=".to_string()),
+                TokenKind::Operator("<=".to_string()),
+                TokenKind::Operator(">=".to_string()),
+                TokenKind::Operator("=".to_string()),
+                TokenKind::Operator(";".to_string()),
+                TokenKind::Operator("(".to_string()),
+                TokenKind::Operator(")".to_string()),
+                TokenKind::Eof,
+            ]
+        );
     }
 }
