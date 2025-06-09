@@ -51,28 +51,34 @@ fn emit_var(off: u64) {
     println!("    str x0, [sp, #-16]!");
 }
 
+// helper to emit code for sequence of two nodes
+fn emit_seq(lhs: &Node, rhs: &Node) {
+    gen_node(lhs);
+    // discard lhs result
+    println!("    ldr x0, [sp], #16");
+    gen_node(rhs);
+}
+
+// helper to emit code for return statement
+fn emit_return(node: &Node) {
+    gen_node(node);
+    // pop return value into x0
+    println!("    ldr x0, [sp], #16");
+    // restore stack pointer to frame pointer
+    println!("    mov sp, x29");
+    // restore frame pointer and link register
+    println!("    ldp x29, x30, [sp], #16");
+    // return
+    println!("    ret");
+}
+
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
-        Node::Seq(lhs, rhs) => {
-            gen_node(lhs);
-            // discard lhs result
-            println!("    ldr x0, [sp], #16");
-            gen_node(rhs);
-        }
+        Node::Seq(lhs, rhs) => emit_seq(lhs, rhs),
         Node::Num(n) => push_imm(*n),
         Node::Var(off) => emit_var(*off),
-        Node::Return(node) => {
-            gen_node(node);
-            // pop return value into x0
-            println!("    ldr x0, [sp], #16");
-            // restore stack pointer to frame pointer
-            println!("    mov sp, x29");
-            // restore frame pointer and link register
-            println!("    ldp x29, x30, [sp], #16");
-            // return
-            println!("    ret");
-        }
+        Node::Return(node) => emit_return(node),
         Node::Assign(lhs, rhs) => emit_assign(lhs, rhs),
         Node::Add(lhs, rhs) => emit_binop("add", lhs, rhs),
         Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),
@@ -99,6 +105,7 @@ fn gen_prologue() {
 }
 
 fn gen_epilogue() {
+    // pop return value into x0
     println!("    ldr x0, [sp], #16");
     // deallocate local variable region
     println!("    add sp, sp, #208");
