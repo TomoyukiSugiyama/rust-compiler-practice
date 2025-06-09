@@ -21,6 +21,8 @@ pub enum TokenKind {
     Return,
     If,
     Else,
+    While,
+    For,
 }
 
 #[derive(Debug)]
@@ -109,6 +111,8 @@ pub fn tokenize(exp: &str) -> Token {
                 "return" => TokenKind::Return,
                 "if" => TokenKind::If,
                 "else" => TokenKind::Else,
+                "while" => TokenKind::While,
+                "for" => TokenKind::For,
                 _ => TokenKind::Ident(word),
             };
             tail = tail.push(kind, start);
@@ -335,7 +339,7 @@ mod tests {
 
     #[test]
     fn test_tokenize_all_operators() {
-        let input = "+ - * / == != < <= > >= = ; ( ) return";
+        let input = "+ - * / == != < <= > >= = ; ( ) return if else while for";
         let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
         assert_eq!(
             kinds,
@@ -355,6 +359,10 @@ mod tests {
                 TokenKind::LParen,
                 TokenKind::RParen,
                 TokenKind::Return,
+                TokenKind::If,
+                TokenKind::Else,
+                TokenKind::While,
+                TokenKind::For,
                 TokenKind::Eof,
             ]
         );

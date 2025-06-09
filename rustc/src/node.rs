@@ -21,6 +21,8 @@ pub enum Node {
     Ge(Box<Node>, Box<Node>),
     Return(Box<Node>),
     If(Box<Node>, Box<Node>, Option<Box<Node>>),
+    While(Box<Node>, Box<Node>),
+    For(Box<Node>, Box<Node>, Box<Node>, Box<Node>),
 }
 
 // program ::= stmt*
@@ -41,7 +43,11 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     root
 }
 
-// stmt ::= expr ';' | 'return' expr ';' | 'if' '(' expr ')' stmt ('else' stmt)?
+// stmt ::= expr ';' |
+// 'return' expr ';' |
+// 'if' '(' expr ')' stmt ('else' stmt)? |
+// 'while' '(' expr ')' stmt |
+// 'for' '(' expr ';' expr ';' expr ')' stmt
 fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     // return statement
     if let Some(tok) = toks.peek() {
@@ -83,6 +89,61 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 None
             };
             return Node::If(Box::new(cond), Box::new(then_stmt), else_stmt);
+        }
+        if tok.kind == TokenKind::While {
+            // parse while statement: 'while' '(' expr ')' stmt
+            toks.next();
+            // expect '('
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::LParen {
+                panic!("expected '(' but found {:?}", tok.kind);
+            }
+            // parse condition
+            let cond = expr(toks, vars);
+            // expect ')'
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::RParen {
+                panic!("expected ')' but found {:?}", tok.kind);
+            }
+            // parse body
+            let body = stmt(toks, vars);
+            return Node::While(Box::new(cond), Box::new(body));
+        }
+        if tok.kind == TokenKind::For {
+            // parse for statement: 'for' '(' expr ';' expr ';' expr ')' stmt
+            toks.next();
+            // expect '('
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::LParen {
+                panic!("expected '(' but found {:?}", tok.kind);
+            }
+            // parse init
+            let init = expr(toks, vars);
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::Semicolon {
+                panic!("expected ';' but found {:?}", tok.kind);
+            }
+            // parse condition
+            let cond = expr(toks, vars);
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::Semicolon {
+                panic!("expected ';' but found {:?}", tok.kind);
+            }
+            // parse update
+            let update = expr(toks, vars);
+            // expect ')'
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::RParen {
+                panic!("expected ')' but found {:?}", tok.kind);
+            }
+            // parse body
+            let body = stmt(toks, vars);
+            return Node::For(
+                Box::new(init),
+                Box::new(cond),
+                Box::new(update),
+                Box::new(body),
+            );
         }
     }
     // expression statement

@@ -100,6 +100,55 @@ fn emit_if(cond: &Node, then_stmt: &Node, else_stmt: Option<&Node>) {
     println!("{}:", end_label);
 }
 
+fn emit_while(cond: &Node, body: &Node) {
+    // while loop: .LloopX: if !(cond) break; body; b .LloopX; .LendX:
+    let id = LABEL_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let loop_label = format!(".Lloop{}", id);
+    let end_label = format!(".Lend{}", id);
+    // loop start label
+    println!("{}:", loop_label);
+    // evaluate condition and pop into x0
+    gen_node(cond);
+    println!("    ldr x0, [sp], #16");
+    println!("    cmp x0, #0");
+    // if zero, jump to end
+    println!("    beq {}", end_label);
+    // loop body
+    gen_node(body);
+    // jump back to loop start
+    println!("    b {}", loop_label);
+    // end label
+    println!("{}:", end_label);
+}
+
+// helper to emit code for for-loop statements
+fn emit_for(init: &Node, cond: &Node, update: &Node, body: &Node) {
+    // for(init; cond; update) body
+    let id = LABEL_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let loop_label = format!(".Lfor{}", id);
+    let cond_label = format!(".Lcond{}", id);
+    let end_label = format!(".Lend{}", id);
+    // init
+    gen_node(init);
+    println!("    ldr x0, [sp], #16");
+    // jump to cond check
+    println!("    b {}", cond_label);
+    // loop body
+    println!("{}:", loop_label);
+    gen_node(body);
+    // update
+    gen_node(update);
+    println!("    ldr x0, [sp], #16");
+    // condition check
+    println!("{}:", cond_label);
+    gen_node(cond);
+    println!("    ldr x0, [sp], #16");
+    println!("    cmp x0, #0");
+    println!("    bne {}", loop_label);
+    // end label
+    println!("{}:", end_label);
+}
+
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
@@ -108,6 +157,8 @@ fn gen_node(node: &Node) {
         Node::Var(off) => emit_var(*off),
         Node::Return(node) => emit_return(node),
         Node::If(cond, then_stmt, else_stmt) => emit_if(cond, then_stmt, else_stmt.as_deref()),
+        Node::While(cond, body) => emit_while(cond, body),
+        Node::For(init, cond, update, body) => emit_for(init, cond, update, body),
         Node::Assign(lhs, rhs) => emit_assign(lhs, rhs),
         Node::Add(lhs, rhs) => emit_binop("add", lhs, rhs),
         Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),
