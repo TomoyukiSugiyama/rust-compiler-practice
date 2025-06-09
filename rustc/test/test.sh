@@ -51,5 +51,6 @@ assert 3 'foo=3;'
 assert 3 'foo=bar=2+1;'
 assert 3 'return 4-1;'
 assert 6 'a=1; b=4; return a+b+1;'
-
+assert 3 'if ( 1 == 1 ) return 3; else return 2;'
+assert 2 'if ( 1 == 2 ) return 3; else return 2;'
 echo "OK"

@@ -20,6 +20,7 @@ pub enum Node {
     Le(Box<Node>, Box<Node>),
     Ge(Box<Node>, Box<Node>),
     Return(Box<Node>),
+    If(Box<Node>, Box<Node>, Option<Box<Node>>),
 }
 
 // program ::= stmt*
@@ -40,7 +41,7 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     root
 }
 
-// stmt ::= expr ';' | 'return' expr ';'
+// stmt ::= expr ';' | 'return' expr ';' | 'if' '(' expr ')' stmt ('else' stmt)?
 fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     // return statement
     if let Some(tok) = toks.peek() {
@@ -52,6 +53,36 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 panic!("expected ';' but found {:?}", tok.kind);
             }
             return Node::Return(Box::new(node));
+        }
+        if tok.kind == TokenKind::If {
+            // parse if statement: 'if' '(' expr ')' stmt ('else' stmt)?
+            toks.next();
+            // expect '('
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::LParen {
+                panic!("expected '(' but found {:?}", tok.kind);
+            }
+            // parse condition
+            let cond = expr(toks, vars);
+            // expect ')'
+            let tok = toks.next().unwrap();
+            if tok.kind != TokenKind::RParen {
+                panic!("expected ')' but found {:?}", tok.kind);
+            }
+            // parse then branch
+            let then_stmt = stmt(toks, vars);
+            // parse optional else branch
+            let else_stmt = if let Some(tok) = toks.peek() {
+                if tok.kind == TokenKind::Else {
+                    toks.next();
+                    Some(Box::new(stmt(toks, vars)))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            return Node::If(Box::new(cond), Box::new(then_stmt), else_stmt);
         }
     }
     // expression statement

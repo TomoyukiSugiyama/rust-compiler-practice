@@ -1,4 +1,6 @@
 use crate::node::Node;
+use std::sync::atomic::{AtomicUsize, Ordering};
+static LABEL_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 // helper to push an immediate onto the stack
 fn push_imm(n: u64) {
@@ -72,6 +74,32 @@ fn emit_return(node: &Node) {
     println!("    ret");
 }
 
+// helper to emit code for if-else statements
+fn emit_if(cond: &Node, then_stmt: &Node, else_stmt: Option<&Node>) {
+    // Evaluate condition and pop into x0
+    gen_node(cond);
+    println!("    ldr x0, [sp], #16");
+    // Compare with zero
+    println!("    cmp x0, #0");
+    // Generate unique labels
+    let id = LABEL_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let else_label = format!(".Lelse{}", id);
+    let end_label = format!(".Lend{}", id);
+    // If zero, jump to else
+    println!("    beq {}", else_label);
+    // then branch
+    gen_node(then_stmt);
+    // Jump to end
+    println!("    b {}", end_label);
+    // else label
+    println!("{}:", else_label);
+    if let Some(es) = else_stmt {
+        gen_node(es);
+    }
+    // end label
+    println!("{}:", end_label);
+}
+
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
@@ -79,6 +107,7 @@ fn gen_node(node: &Node) {
         Node::Num(n) => push_imm(*n),
         Node::Var(off) => emit_var(*off),
         Node::Return(node) => emit_return(node),
+        Node::If(cond, then_stmt, else_stmt) => emit_if(cond, then_stmt, else_stmt.as_deref()),
         Node::Assign(lhs, rhs) => emit_assign(lhs, rhs),
         Node::Add(lhs, rhs) => emit_binop("add", lhs, rhs),
         Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),

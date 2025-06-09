@@ -19,6 +19,8 @@ pub enum TokenKind {
     RParen,
     Eof,
     Return,
+    If,
+    Else,
 }
 
 #[derive(Debug)]
@@ -105,6 +107,8 @@ pub fn tokenize(exp: &str) -> Token {
             }
             let kind = match word.as_str() {
                 "return" => TokenKind::Return,
+                "if" => TokenKind::If,
+                "else" => TokenKind::Else,
                 _ => TokenKind::Ident(word),
             };
             tail = tail.push(kind, start);
