@@ -62,7 +62,9 @@ pub fn expect_operator(cur: &Token, exp: &str) -> TokenKind {
         TokenKind::Slash => TokenKind::Slash,
         TokenKind::EqEq => TokenKind::EqEq,
         TokenKind::Ne => TokenKind::Ne,
+        TokenKind::Lt => TokenKind::Lt,
         TokenKind::Le => TokenKind::Le,
+        TokenKind::Gt => TokenKind::Gt,
         TokenKind::Ge => TokenKind::Ge,
         TokenKind::Assign => TokenKind::Assign,
         TokenKind::Semicolon => TokenKind::Semicolon,
@@ -367,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_tokenize_all_operators() {
-        let input = "+ - * / == != <= >= = ; ( )";
+        let input = "+ - * / == != < <= > >= = ; ( )";
         let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
         assert_eq!(
             kinds,
@@ -378,7 +380,9 @@ mod tests {
                 TokenKind::Slash,
                 TokenKind::EqEq,
                 TokenKind::Ne,
+                TokenKind::Lt,
                 TokenKind::Le,
+                TokenKind::Gt,
                 TokenKind::Ge,
                 TokenKind::Assign,
                 TokenKind::Semicolon,
