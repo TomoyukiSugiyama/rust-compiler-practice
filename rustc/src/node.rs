@@ -354,4 +354,46 @@ mod tests {
             Node::Assign(Box::new(Node::Var(8)), Box::new(Node::Num(1)))
         );
     }
+
+    // program function tests
+    #[test]
+    fn test_program_single_stmt() {
+        let mut iter = tokenize("42;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(node, Node::Num(42));
+    }
+
+    #[test]
+    fn test_program_two_stmts() {
+        let mut iter = tokenize("1;2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Seq(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+        );
+    }
+
+    #[test]
+    fn test_program_return() {
+        let mut iter = tokenize("return 3;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(node, Node::Return(Box::new(Node::Num(3))));
+    }
+
+    #[test]
+    fn test_program_seq_return() {
+        let mut iter = tokenize("1;return 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Seq(
+                Box::new(Node::Num(1)),
+                Box::new(Node::Return(Box::new(Node::Num(2))))
+            )
+        );
+    }
 }
