@@ -24,6 +24,64 @@ fn gen_node(node: &Node) {
         Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),
         Node::Mul(lhs, rhs) => emit_binop("mul", lhs, rhs),
         Node::Div(lhs, rhs) => emit_binop("sdiv", lhs, rhs),
+        Node::Assign(_, rhs) => {
+            // Evaluate RHS and use its value
+            gen_node(rhs);
+        }
+        Node::Eq(lhs, rhs) => {
+            gen_node(lhs);
+            gen_node(rhs);
+            println!("    ldr x1, [sp], #16");
+            println!("    ldr x0, [sp], #16");
+            println!("    cmp x0, x1");
+            println!("    cset x0, eq");
+            println!("    str x0, [sp, #-16]!");
+        }
+        Node::Ne(lhs, rhs) => {
+            gen_node(lhs);
+            gen_node(rhs);
+            println!("    ldr x1, [sp], #16");
+            println!("    ldr x0, [sp], #16");
+            println!("    cmp x0, x1");
+            println!("    cset x0, ne");
+            println!("    str x0, [sp, #-16]!");
+        }
+        Node::Lt(lhs, rhs) => {
+            gen_node(lhs);
+            gen_node(rhs);
+            println!("    ldr x1, [sp], #16");
+            println!("    ldr x0, [sp], #16");
+            println!("    cmp x0, x1");
+            println!("    cset x0, lt");
+            println!("    str x0, [sp, #-16]!");
+        }
+        Node::Gt(lhs, rhs) => {
+            gen_node(lhs);
+            gen_node(rhs);
+            println!("    ldr x1, [sp], #16");
+            println!("    ldr x0, [sp], #16");
+            println!("    cmp x0, x1");
+            println!("    cset x0, gt");
+            println!("    str x0, [sp, #-16]!");
+        }
+        Node::Le(lhs, rhs) => {
+            gen_node(lhs);
+            gen_node(rhs);
+            println!("    ldr x1, [sp], #16");
+            println!("    ldr x0, [sp], #16");
+            println!("    cmp x0, x1");
+            println!("    cset x0, le");
+            println!("    str x0, [sp, #-16]!");
+        }
+        Node::Ge(lhs, rhs) => {
+            gen_node(lhs);
+            gen_node(rhs);
+            println!("    ldr x1, [sp], #16");
+            println!("    ldr x0, [sp], #16");
+            println!("    cmp x0, x1");
+            println!("    cset x0, ge");
+            println!("    str x0, [sp, #-16]!");
+        }
         _ => unimplemented!("codegen for {:?}", node),
     }
 }
