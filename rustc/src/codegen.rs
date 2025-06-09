@@ -27,6 +27,30 @@ fn emit_cmp(cond: &str, lhs: &Node, rhs: &Node) {
     println!("    str x0, [sp, #-16]!");
 }
 
+// helper to emit code for assignments
+fn emit_assign(lhs: &Node, rhs: &Node) {
+    // evaluate RHS and pop into x1
+    gen_node(rhs);
+    println!("    ldr x1, [sp], #16");
+    // determine variable offset or error
+    let off = match lhs {
+        Node::Var(off) => *off,
+        other => panic!("assignment to non-variable: {:?}", other),
+    };
+    // store into variable slot at negative offset from frame pointer
+    println!("    str x1, [x29, #-{}]", off);
+    // push assigned value back onto stack
+    println!("    str x1, [sp, #-16]!");
+}
+
+// helper to emit code for variable load
+fn emit_var(off: u64) {
+    // load variable from frame pointer
+    println!("    ldr x0, [x29, #-{}]", off);
+    // push loaded value onto stack
+    println!("    str x0, [sp, #-16]!");
+}
+
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
@@ -35,24 +59,8 @@ fn gen_node(node: &Node) {
         Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),
         Node::Mul(lhs, rhs) => emit_binop("mul", lhs, rhs),
         Node::Div(lhs, rhs) => emit_binop("sdiv", lhs, rhs),
-        Node::Assign(lhs, rhs) => {
-            // evaluate RHS
-            gen_node(rhs);
-            // pop result into x1
-            println!("    ldr x1, [sp], #16");
-            // determine variable offset or error
-            let off = match &**lhs {
-                Node::Var(off) => *off,
-                other => panic!("assignment to non-variable: {:?}", other),
-            };
-            // store into variable slot at negative offset from frame pointer
-            println!("    str x1, [x29, #-{}]", off);
-            // push assigned value back onto stack
-            println!("    str x1, [sp, #-16]!");
-        }
-        Node::Var(offset) => {
-            println!("    ldr x0, [x29, #-{}]", offset);
-        }
+        Node::Assign(lhs, rhs) => emit_assign(lhs, rhs),
+        Node::Var(off) => emit_var(*off),
         Node::Eq(lhs, rhs) => emit_cmp("eq", lhs, rhs),
         Node::Ne(lhs, rhs) => emit_cmp("ne", lhs, rhs),
         Node::Lt(lhs, rhs) => emit_cmp("lt", lhs, rhs),
