@@ -29,23 +29,41 @@ pub fn expr(toks: &mut Peekable<TokenIter>) -> Node {
     lhs
 }
 
-// mul ::= primary (('*' | '/') primary)*
+// mul ::= unary (('*' | '/') unary)*
 fn mul(toks: &mut Peekable<TokenIter>) -> Node {
-    let mut lhs = primary(toks);
+    let mut lhs = unary(toks);
     while let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::Operator('*') => {
                 toks.next();
-                lhs = Node::Mul(Box::new(lhs), Box::new(primary(toks)));
+                lhs = Node::Mul(Box::new(lhs), Box::new(unary(toks)));
             }
             TokenKind::Operator('/') => {
                 toks.next();
-                lhs = Node::Div(Box::new(lhs), Box::new(primary(toks)));
+                lhs = Node::Div(Box::new(lhs), Box::new(unary(toks)));
             }
             _ => break,
         }
     }
     lhs
+}
+
+// unary ::= ('+' | '-')? primary
+fn unary(toks: &mut Peekable<TokenIter>) -> Node {
+    if let Some(tok) = toks.peek() {
+        match tok.kind {
+            TokenKind::Operator('+') => {
+                toks.next();
+                return primary(toks);
+            }
+            TokenKind::Operator('-') => {
+                toks.next();
+                return Node::Sub(Box::new(Node::Num(0)), Box::new(primary(toks)));
+            }
+            _ => {}
+        }
+    }
+    primary(toks)
 }
 
 // primary ::= number | '(' expr ')'

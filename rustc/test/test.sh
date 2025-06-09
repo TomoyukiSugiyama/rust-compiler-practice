@@ -8,9 +8,14 @@ assert() {
     clang -arch arm64 -x assembler  ./bin/test-arm64.s -o ./bin/test
 
     ./bin/test
-    actual=$?
+    actual="$?"
 
-    if [ $actual = $expected ]; then
+    # Convert actual exit code to signed 8-bit
+    if [ $actual -gt 127 ]; then
+        actual=$((actual - 256))
+    fi
+
+    if [ "$actual" = "$expected" ]; then
         echo "$input => $actual"
     else
         echo "$input => $expected expected, but got $actual"
@@ -28,5 +33,8 @@ assert 4 ' 1  +2- 3+4 '
 assert 7 ' 1 + 2 * 3 '
 assert 4 ' 6 - 6 / 3 '
 assert 9 ' (1 + 2) * 3 '
+assert -3 '-3'
+assert -8 '-(3+5)'
+assert -15 '-3*+5'
 
 echo "OK"
