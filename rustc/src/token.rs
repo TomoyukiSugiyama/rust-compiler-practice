@@ -92,21 +92,22 @@ pub fn tokenize(exp: &str) -> Token {
             }
             tail = tail.push(TokenKind::Number(num), start);
         } else if c.is_ascii_alphabetic() {
+            // parse identifiers and keywords
             let start = i;
-            let mut ident = String::new();
-            while let Some(&(_, dch)) = chars.peek() {
-                if dch.is_ascii_alphanumeric() {
-                    ident.push(dch);
+            let mut word = String::new();
+            while let Some(&(_, ch)) = chars.peek() {
+                if ch.is_ascii_alphanumeric() {
+                    word.push(ch);
                     chars.next();
                 } else {
                     break;
                 }
             }
-            if ident == "return" {
-                tail = tail.push(TokenKind::Return, start);
-            } else {
-                tail = tail.push(TokenKind::Ident(ident), start);
-            }
+            let kind = match word.as_str() {
+                "return" => TokenKind::Return,
+                _ => TokenKind::Ident(word),
+            };
+            tail = tail.push(kind, start);
         } else {
             // Operators and delimiters
             let pos = i;
