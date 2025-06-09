@@ -1,25 +1,32 @@
 use crate::token::*;
+use crate::variable::Variable;
+use std::cell::RefCell;
 use std::iter::Peekable;
+
+thread_local! {
+    static LOCAL_VARS: RefCell<Variable> = RefCell::new(Variable::new("".to_string(), 0, None));
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Node {
     Num(u64),
+    Var(u64),
+    Assign(Box<Node>, Box<Node>),
     Add(Box<Node>, Box<Node>),
     Sub(Box<Node>, Box<Node>),
     Mul(Box<Node>, Box<Node>),
     Div(Box<Node>, Box<Node>),
-    Assign(Box<Node>, Box<Node>),
     Eq(Box<Node>, Box<Node>),
     Ne(Box<Node>, Box<Node>),
     Lt(Box<Node>, Box<Node>),
     Gt(Box<Node>, Box<Node>),
     Le(Box<Node>, Box<Node>),
     Ge(Box<Node>, Box<Node>),
-    Ident(String),
 }
 
 // program ::= stmt*
 pub fn program(toks: &mut Peekable<TokenIter>) -> Node {
+    LOCAL_VARS.with(|lv| *lv.borrow_mut() = Variable::new("".to_string(), 0, None));
     let mut stmts = Vec::new();
     while let Some(tok) = toks.peek() {
         if let TokenKind::Eof = tok.kind {
@@ -187,7 +194,27 @@ fn primary(toks: &mut Peekable<TokenIter>) -> Node {
                 panic!("expected ')' but found {:?}", closing.kind);
             }
         }
-        TokenKind::Ident(ref ident) => Node::Ident(ident.clone()),
+        TokenKind::Ident(ref ident) => {
+            let name = ident.clone();
+            let offset = LOCAL_VARS.with(|lv| {
+                let mut vars = lv.borrow_mut();
+                if let Some(off) = vars.find(&name) {
+                    off
+                } else {
+                    // calculate last offset + 8
+                    let mut last = vars.offset;
+                    let mut cur = &*vars;
+                    while let Some(ref nxt) = cur.next {
+                        last = nxt.offset;
+                        cur = nxt;
+                    }
+                    let new_off = last + 8;
+                    vars.push(name.clone(), new_off);
+                    new_off
+                }
+            });
+            Node::Var(offset)
+        }
         _ => unreachable!(),
     }
 }

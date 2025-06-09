@@ -35,14 +35,30 @@ fn gen_node(node: &Node) {
         Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),
         Node::Mul(lhs, rhs) => emit_binop("mul", lhs, rhs),
         Node::Div(lhs, rhs) => emit_binop("sdiv", lhs, rhs),
-        Node::Assign(_, rhs) => gen_node(rhs),
+        Node::Assign(lhs, rhs) => {
+            // evaluate RHS
+            gen_node(rhs);
+            // pop result into x1
+            println!("    ldr x1, [sp], #16");
+            // determine variable offset or error
+            let off = match &**lhs {
+                Node::Var(off) => *off,
+                other => panic!("assignment to non-variable: {:?}", other),
+            };
+            // store into variable slot at negative offset from frame pointer
+            println!("    str x1, [x29, #-{}]", off);
+            // push assigned value back onto stack
+            println!("    str x1, [sp, #-16]!");
+        }
+        Node::Var(offset) => {
+            println!("    ldr x0, [x29, #-{}]", offset);
+        }
         Node::Eq(lhs, rhs) => emit_cmp("eq", lhs, rhs),
         Node::Ne(lhs, rhs) => emit_cmp("ne", lhs, rhs),
         Node::Lt(lhs, rhs) => emit_cmp("lt", lhs, rhs),
         Node::Gt(lhs, rhs) => emit_cmp("gt", lhs, rhs),
         Node::Le(lhs, rhs) => emit_cmp("le", lhs, rhs),
         Node::Ge(lhs, rhs) => emit_cmp("ge", lhs, rhs),
-        _ => unimplemented!("codegen for {:?}", node),
     }
 }
 
@@ -52,9 +68,18 @@ pub fn generate(node: &Node) {
     println!(".section __TEXT,__text");
     println!(".globl _main");
     println!("_main:");
+    // save old frame pointer and set up new
+    println!("    stp x29, x30, [sp, #-16]!");
+    println!("    mov x29, sp");
+    // reserve space for 26 local variables (26*8 bytes)
+    println!("    sub sp, sp, #208");
     // generate body
     gen_node(node);
     // function epilogue: pop final result into x0 and return
     println!("    ldr x0, [sp], #16");
+    // deallocate local variable region
+    println!("    add sp, sp, #208");
+    // restore frame pointer and return
+    println!("    ldp x29, x30, [sp], #16");
     println!("    ret");
 }
