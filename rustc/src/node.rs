@@ -195,7 +195,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             let offset = if let Some(off) = vars.find(&name) {
                 off
             } else {
-                // リスト先頭のnextが最後に追加された変数
+                // 直前に push された変数のオフセット、未登録なら vars.offset（0）
                 let last = vars.next.as_ref().map(|v| v.offset).unwrap_or(vars.offset);
                 let new_off = last + 8;
                 vars.push(name.clone(), new_off);
@@ -321,6 +321,35 @@ mod tests {
         assert_eq!(
             expr(&mut it_ge, &mut vars4),
             Node::Ge(Box::new(Node::Num(2)), Box::new(Node::Num(2)))
+        );
+    }
+
+    #[test]
+    fn test_ident_offset() {
+        let mut iter = tokenize("a").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = primary(&mut iter, &mut vars);
+        assert_eq!(node, Node::Var(8));
+    }
+
+    #[test]
+    fn test_ident_repeated_offset() {
+        let mut iter = tokenize("a a").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let first = primary(&mut iter, &mut vars);
+        let second = primary(&mut iter, &mut vars);
+        assert_eq!(first, Node::Var(8));
+        assert_eq!(second, Node::Var(8));
+    }
+
+    #[test]
+    fn test_assign_ident() {
+        let mut iter = tokenize("a=1").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = expr(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Assign(Box::new(Node::Var(8)), Box::new(Node::Num(1)))
         );
     }
 }
