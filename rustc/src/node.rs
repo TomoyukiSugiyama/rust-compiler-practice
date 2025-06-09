@@ -187,9 +187,7 @@ fn primary(toks: &mut Peekable<TokenIter>) -> Node {
                 panic!("expected ')' but found {:?}", closing.kind);
             }
         }
-        TokenKind::Ident(ref ident) => {
-            Node::Ident(ident.clone())
-        }
+        TokenKind::Ident(ref ident) => Node::Ident(ident.clone()),
         _ => unreachable!(),
     }
 }
@@ -292,6 +290,50 @@ mod tests {
         assert_eq!(
             node,
             Node::Add(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+        );
+    }
+
+    #[test]
+    fn test_expr_assign() {
+        let mut iter = tokenize("1=2").into_iter().peekable();
+        let node = expr(&mut iter);
+        assert_eq!(
+            node,
+            Node::Assign(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+        );
+    }
+
+    #[test]
+    fn test_expr_eq_ne() {
+        let mut it1 = tokenize("1==2").into_iter().peekable();
+        let n1 = expr(&mut it1);
+        assert_eq!(n1, Node::Eq(Box::new(Node::Num(1)), Box::new(Node::Num(2))));
+        let mut it2 = tokenize("1!=2").into_iter().peekable();
+        let n2 = expr(&mut it2);
+        assert_eq!(n2, Node::Ne(Box::new(Node::Num(1)), Box::new(Node::Num(2))));
+    }
+
+    #[test]
+    fn test_expr_relational() {
+        let mut it_lt = tokenize("1<2").into_iter().peekable();
+        assert_eq!(
+            expr(&mut it_lt),
+            Node::Lt(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+        );
+        let mut it_gt = tokenize("2>1").into_iter().peekable();
+        assert_eq!(
+            expr(&mut it_gt),
+            Node::Gt(Box::new(Node::Num(2)), Box::new(Node::Num(1)))
+        );
+        let mut it_le = tokenize("1<=1").into_iter().peekable();
+        assert_eq!(
+            expr(&mut it_le),
+            Node::Le(Box::new(Node::Num(1)), Box::new(Node::Num(1)))
+        );
+        let mut it_ge = tokenize("2>=2").into_iter().peekable();
+        assert_eq!(
+            expr(&mut it_ge),
+            Node::Ge(Box::new(Node::Num(2)), Box::new(Node::Num(2)))
         );
     }
 }
