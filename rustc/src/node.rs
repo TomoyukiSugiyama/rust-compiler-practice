@@ -552,4 +552,32 @@ mod tests {
             )
         );
     }
+
+    // Add tests for function call parsing
+    #[test]
+    fn test_call_no_args() {
+        let mut iter = tokenize("foo()").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = primary(&mut iter, &mut vars);
+        assert_eq!(node, Node::Call("foo".to_string(), vec![]));
+    }
+
+    #[test]
+    fn test_call_one_arg() {
+        let mut iter = tokenize("foo(42)").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = primary(&mut iter, &mut vars);
+        assert_eq!(node, Node::Call("foo".to_string(), vec![Node::Num(42)]));
+    }
+
+    #[test]
+    fn test_call_multiple_args() {
+        let mut iter = tokenize("foo(1,2)").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = primary(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Call("foo".to_string(), vec![Node::Num(1), Node::Num(2)])
+        );
+    }
 }
