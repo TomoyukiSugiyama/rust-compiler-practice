@@ -56,4 +56,5 @@ assert 2 'fn main(){if ( 1 == 2 ) return 3; else return 2;}'
 assert 10 'fn main(){a=0; while ( a < 10 ) a=a+1; return a;}'
 assert 10 'fn main(){a=0; for ( i=0; i<10; i=i+1 ) a=a+1; return a;}'
 assert 4 'fn main(){a=0; b=1; for ( i=0; i<3; i=i+1 ) { a=a+1; b=b+1; } return b;}'
+assert 5 'fn foo(){a=3;return a;} fn main(){b=foo(); return b+2;}'
 echo "OK"
