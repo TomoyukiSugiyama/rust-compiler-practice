@@ -25,23 +25,12 @@ pub fn expect_number(cur: &Token, exp: &str) -> u64 {
 }
 
 /// Panic when an unexpected token is encountered in parsing
-pub fn expect_token(cur: &Token, expected: &str) {
+pub fn expect_token(cur: &Token, expected: TokenKind) {
     let exp = CURRENT_EXP.with(|c| c.borrow().clone());
-    // check that the current token matches the expected literal
-    let ok = match expected {
-        ";" => matches!(cur.kind, TokenKind::Semicolon),
-        "{" => matches!(cur.kind, TokenKind::LBrace),
-        "}" => matches!(cur.kind, TokenKind::RBrace),
-        "(" => matches!(cur.kind, TokenKind::LParen),
-        ")" => matches!(cur.kind, TokenKind::RParen),
-        "," => matches!(cur.kind, TokenKind::Comma),
-        "=" => matches!(cur.kind, TokenKind::Assign),
-        _ => false,
-    };
-    if ok {
+    if &cur.kind == &expected {
         return;
     }
-    error_at(&exp, cur.pos, &format!("expected {}", expected));
+    error_at(&exp, cur.pos, &format!("expected {:?}", expected));
 }
 
 #[cfg(test)]
