@@ -174,6 +174,7 @@ fn gen_prologue(name: &String) {
     println!("    mov x29, sp");
     // reserve space for 26 local variables (26*8 bytes)
     println!("    sub sp, sp, #208");
+    println!("    str x0, [x29, #-8]");
 }
 
 fn gen_epilogue() {
