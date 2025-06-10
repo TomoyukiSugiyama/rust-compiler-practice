@@ -656,4 +656,58 @@ mod tests {
             Node::Call("foo".to_string(), vec![Node::Num(1), Node::Num(2)])
         );
     }
+
+    // Add tests for control flow statements
+    #[test]
+    fn test_stmt_if() {
+        let mut iter = tokenize("if (1) 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = stmt(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::If(Box::new(Node::Num(1)), Box::new(Node::Num(2)), None)
+        );
+    }
+
+    #[test]
+    fn test_stmt_if_else() {
+        let mut iter = tokenize("if (1) 2; else 3;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = stmt(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::If(
+                Box::new(Node::Num(1)),
+                Box::new(Node::Num(2)),
+                Some(Box::new(Node::Num(3))),
+            )
+        );
+    }
+
+    #[test]
+    fn test_stmt_while() {
+        let mut iter = tokenize("while (1) 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = stmt(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::While(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+        );
+    }
+
+    #[test]
+    fn test_stmt_for() {
+        let mut iter = tokenize("for (1;2;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = stmt(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::For(
+                Box::new(Node::Num(1)),
+                Box::new(Node::Num(2)),
+                Box::new(Node::Num(3)),
+                Box::new(Node::Num(4)),
+            )
+        );
+    }
 }
