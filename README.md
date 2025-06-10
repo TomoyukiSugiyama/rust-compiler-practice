@@ -26,8 +26,12 @@ OK
 
 ```bash
 % cd rustc
-% cargo run -- 'foowithargs(1, 2);' > bin/test-function-call.s
+# debug function call
+% cargo run -- 'fn test(){debug2(1, 2);}' > bin/test-debug.s
+# debug fibonacci
+$ cargo run -- 'fn fib(n) { if (n <= 1) { return n; } return fib(n - 1) + fib(n - 2); } fn test() { res = fib(10);debug1(res); return res; }' > bin/test-debug.s
 ```
+
 
 ## 2. Build and run the integration test
 
