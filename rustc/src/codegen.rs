@@ -165,10 +165,42 @@ fn emit_call(name: &String, args: &[Node]) {
     println!("    str x0, [sp, #-16]!");
 }
 
+fn gen_prologue(name: &String) {
+    println!(".section __TEXT,__text");
+    println!(".globl _{}", name);
+    println!("_{}:", name);
+    // save old frame pointer and set up new
+    println!("    stp x29, x30, [sp, #-16]!");
+    println!("    mov x29, sp");
+    // reserve space for 26 local variables (26*8 bytes)
+    println!("    sub sp, sp, #208");
+}
+
+fn gen_epilogue() {
+    // pop return value into x0
+    println!("    ldr x0, [sp], #16");
+    // deallocate local variable region
+    println!("    add sp, sp, #208");
+    // restore frame pointer and return
+    println!("    ldp x29, x30, [sp], #16");
+    println!("    ret");
+}
+
+// helper to emit code for function definitions
+fn emit_function(name: &String, args: &Vec<Node>, body: &Box<Node>) {
+    gen_prologue(name);
+    for arg in args {
+        gen_node(arg);
+    }
+    gen_node(body);
+    gen_epilogue();
+}
+
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
         Node::Seq(lhs, rhs) => emit_seq(lhs, rhs),
+        Node::Function(name, args, body) => emit_function(name, args, body),
         Node::Num(n) => push_imm(*n),
         Node::Var(off) => emit_var(*off),
         Node::Call(name, args) => emit_call(name, args),
@@ -190,30 +222,9 @@ fn gen_node(node: &Node) {
     }
 }
 
-fn gen_prologue() {
-    println!(".section __TEXT,__text");
-    println!(".globl _main");
-    println!("_main:");
-    // save old frame pointer and set up new
-    println!("    stp x29, x30, [sp, #-16]!");
-    println!("    mov x29, sp");
-    // reserve space for 26 local variables (26*8 bytes)
-    println!("    sub sp, sp, #208");
-}
-
-fn gen_epilogue() {
-    // pop return value into x0
-    println!("    ldr x0, [sp], #16");
-    // deallocate local variable region
-    println!("    add sp, sp, #208");
-    // restore frame pointer and return
-    println!("    ldp x29, x30, [sp], #16");
-    println!("    ret");
-}
-
 /// Generate full ARM64 assembly for the AST, including prologue and epilogue.
 pub fn generate(node: &Node) {
-    gen_prologue();
+    // gen_prologue();
     gen_node(node);
-    gen_epilogue();
+    // gen_epilogue();
 }

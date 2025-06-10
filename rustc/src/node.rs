@@ -9,6 +9,7 @@ pub enum Node {
     Seq(Box<Node>, Box<Node>),
     Num(u64),
     Var(u64),
+    Function(String, Vec<Node>, Box<Node>),
     // Function call with optional arguments: name(arg1, arg2, ...)
     Call(String, Vec<Node>),
     Assign(Box<Node>, Box<Node>),
@@ -28,22 +29,72 @@ pub enum Node {
     For(Box<Node>, Box<Node>, Box<Node>, Box<Node>),
 }
 
-// program ::= stmt*
+// program ::= function*
 pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
-    let mut stmts = Vec::new();
+    let mut funcs = Vec::new();
     while let Some(tok) = toks.peek() {
         if let TokenKind::Eof = tok.kind {
             break;
         }
-        stmts.push(stmt(toks, vars));
+        // parse a function definition
+        funcs.push(function(toks, vars));
     }
-    // Fold statements into nested Seq nodes
-    let mut iter = stmts.into_iter();
+    // Fold functions into nested Seq nodes
+    let mut iter = funcs.into_iter();
     let mut root = iter.next().unwrap();
     for next in iter {
         root = Node::Seq(Box::new(root), Box::new(next));
     }
     root
+}
+
+// function ::= 'fn' ident '(' args? ')' '{' stmt* '}'
+fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+    // consume 'fn'
+    let tok = toks.next().unwrap();
+    expect_token(&tok, &TokenKind::Fn);
+    // parse function name
+    let tok = toks.next().unwrap();
+    // expect_token(&tok, &TokenKind::Ident(String::new()));
+    let name = if let TokenKind::Ident(ident) = tok.kind.clone() {
+        ident
+    } else {
+        unreachable!()
+    };
+    // expect '('
+    let tok = toks.next().unwrap();
+    expect_token(&tok, &TokenKind::LParen);
+    // parse optional arguments
+    let mut args_vec = Vec::new();
+    if let Some(peek) = toks.peek() {
+        if peek.kind != TokenKind::RParen {
+            args_vec = args(toks, vars);
+        }
+    }
+    // expect ')'
+    let tok = toks.next().unwrap();
+    expect_token(&tok, &TokenKind::RParen);
+    // expect '{'
+    let tok = toks.next().unwrap();
+    expect_token(&tok, &TokenKind::LBrace);
+    // parse body statements
+    let mut stmts = Vec::new();
+    while let Some(peek) = toks.peek() {
+        if peek.kind == TokenKind::RBrace {
+            break;
+        }
+        stmts.push(stmt(toks, vars));
+    }
+    // expect '}'
+    let tok = toks.next().unwrap();
+    expect_token(&tok, &TokenKind::RBrace);
+    // fold into a single Node
+    let mut iter = stmts.into_iter();
+    let mut body = iter.next().unwrap();
+    for next in iter {
+        body = Node::Seq(Box::new(body), Box::new(next));
+    }
+    Node::Function(name, args_vec, Box::new(body))
 }
 
 // stmt ::= expr ';' |
@@ -505,42 +556,75 @@ mod tests {
 
     // program function tests
     #[test]
-    fn test_program_single_stmt() {
-        let mut iter = tokenize("42;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
-        assert_eq!(node, Node::Num(42));
-    }
-
-    #[test]
-    fn test_program_two_stmts() {
-        let mut iter = tokenize("1;2;").into_iter().peekable();
+    fn test_program_single_function() {
+        let mut iter = tokenize("fn main() { 42; }").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = program(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Seq(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+            Node::Function("main".to_string(), vec![], Box::new(Node::Num(42)))
         );
     }
 
     #[test]
-    fn test_program_return() {
-        let mut iter = tokenize("return 3;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
-        assert_eq!(node, Node::Return(Box::new(Node::Num(3))));
-    }
-
-    #[test]
-    fn test_program_seq_return() {
-        let mut iter = tokenize("1;return 2;").into_iter().peekable();
+    fn test_program_two_functions() {
+        let mut iter = tokenize("fn main() { 1; } fn foo() { 2; }")
+            .into_iter()
+            .peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = program(&mut iter, &mut vars);
         assert_eq!(
             node,
             Node::Seq(
-                Box::new(Node::Num(1)),
-                Box::new(Node::Return(Box::new(Node::Num(2))))
+                Box::new(Node::Function(
+                    "main".to_string(),
+                    vec![],
+                    Box::new(Node::Num(1))
+                )),
+                Box::new(Node::Function(
+                    "foo".to_string(),
+                    vec![],
+                    Box::new(Node::Num(2))
+                ))
+            )
+        );
+    }
+
+    #[test]
+    fn test_program_return_in_function() {
+        let mut iter = tokenize("fn main() { return 3; }").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Function(
+                "main".to_string(),
+                vec![],
+                Box::new(Node::Return(Box::new(Node::Num(3))))
+            )
+        );
+    }
+
+    #[test]
+    fn test_program_two_functions_with_return() {
+        let mut iter = tokenize("fn mainA() { 1; } fn mainB() { return 2; }")
+            .into_iter()
+            .peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Seq(
+                Box::new(Node::Function(
+                    "mainA".to_string(),
+                    vec![],
+                    Box::new(Node::Num(1))
+                )),
+                Box::new(Node::Function(
+                    "mainB".to_string(),
+                    vec![],
+                    Box::new(Node::Return(Box::new(Node::Num(2))))
+                ))
             )
         );
     }

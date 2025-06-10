@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind {
     Start,
     Number(u64),
@@ -24,6 +24,7 @@ pub enum TokenKind {
     Else,
     While,
     For,
+    Fn,
     LBrace,
     RBrace,
 }
@@ -112,6 +113,7 @@ pub fn tokenize(exp: &str) -> Token {
                 "else" => TokenKind::Else,
                 "while" => TokenKind::While,
                 "for" => TokenKind::For,
+                "fn" => TokenKind::Fn,
                 _ => TokenKind::Ident(word),
             };
             tail = tail.push(kind, start);
