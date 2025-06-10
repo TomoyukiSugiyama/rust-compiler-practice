@@ -8,6 +8,8 @@ pub enum Node {
     Seq(Box<Node>, Box<Node>),
     Num(u64),
     Var(u64),
+    // Function call: name()
+    Call(String),
     Assign(Box<Node>, Box<Node>),
     Add(Box<Node>, Box<Node>),
     Sub(Box<Node>, Box<Node>),
@@ -288,7 +290,9 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     primary(toks, vars)
 }
 
-// primary ::= number | '(' expr ')' | ident
+// primary ::= number |
+//             ident ('('  ')')? |
+//             '(' expr ')' |
 fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let tok = toks.next().unwrap();
     match tok.kind {
@@ -306,11 +310,21 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         }
         TokenKind::Ident(ref ident) => {
             let name = ident.clone();
-            // 既存変数のオフセットを取得、未定義なら新規作成
+            // function call: name()
+            if let Some(next_tok) = toks.peek() {
+                if next_tok.kind == TokenKind::LParen {
+                    toks.next(); // consume '('
+                    let tok2 = toks.next().unwrap();
+                    if tok2.kind != TokenKind::RParen {
+                        panic!("expected ')' but found {:?}", tok2.kind);
+                    }
+                    return Node::Call(name);
+                }
+            }
+            // variable
             let offset = if let Some(off) = vars.find(&name) {
                 off
             } else {
-                // 直前に push された変数のオフセット、未登録なら vars.offset（0）
                 let last = vars.next.as_ref().map(|v| v.offset).unwrap_or(vars.offset);
                 let new_off = last + 8;
                 vars.push(name.clone(), new_off);

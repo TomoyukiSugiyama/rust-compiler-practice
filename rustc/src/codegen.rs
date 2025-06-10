@@ -149,12 +149,21 @@ fn emit_for(init: &Node, cond: &Node, update: &Node, body: &Node) {
     println!("{}:", end_label);
 }
 
+// helper to emit code for function call statements
+fn emit_call(name: &String) {
+    // call external function (prepend underscore)
+    println!("    bl _{}", name);
+    // push return value onto stack
+    println!("    str x0, [sp, #-16]!");
+}
+
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
         Node::Seq(lhs, rhs) => emit_seq(lhs, rhs),
         Node::Num(n) => push_imm(*n),
         Node::Var(off) => emit_var(*off),
+        Node::Call(name) => emit_call(name),
         Node::Return(node) => emit_return(node),
         Node::If(cond, then_stmt, else_stmt) => emit_if(cond, then_stmt, else_stmt.as_deref()),
         Node::While(cond, body) => emit_while(cond, body),
