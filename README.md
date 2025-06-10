@@ -1,4 +1,4 @@
-# setup
+# Setup
 
 ```bash
 $ mkdir -p rustc/bin
@@ -20,25 +20,16 @@ OK
 
 ```
 
-# Function Call Test
+# Function call test
 
 ## 1. Generate `test-foo.s`
 
 ```bash
 % cd rustc
-% cargo run -- 'foo();' > bin/test-foo.s
+% cargo run -- 'foowithargs(1, 2);' > bin/test-function-call.s
 ```
 
-## 2. Edit `test-foo.s`
-
-```diff
-< .globl _main
-< _main:
-> .globl _test
-> _test:
-```
-
-## 3. Build and run the integration test
+## 2. Build and run the integration test
 
 ```sh
 % cd rustc

@@ -149,8 +149,16 @@ fn emit_for(init: &Node, cond: &Node, update: &Node, body: &Node) {
     println!("{}:", end_label);
 }
 
-// helper to emit code for function call statements
-fn emit_call(name: &String) {
+// helper to emit code for function call statements with arguments
+fn emit_call(name: &String, args: &[Node]) {
+    // evaluate arguments and push onto stack
+    for arg in args {
+        gen_node(arg);
+    }
+    // pop arguments into x registers (reverse order)
+    for i in (0..args.len()).rev() {
+        println!("    ldr x{}, [sp], #16", i);
+    }
     // call external function (prepend underscore)
     println!("    bl _{}", name);
     // push return value onto stack
@@ -163,7 +171,7 @@ fn gen_node(node: &Node) {
         Node::Seq(lhs, rhs) => emit_seq(lhs, rhs),
         Node::Num(n) => push_imm(*n),
         Node::Var(off) => emit_var(*off),
-        Node::Call(name) => emit_call(name),
+        Node::Call(name, args) => emit_call(name, args),
         Node::Return(node) => emit_return(node),
         Node::If(cond, then_stmt, else_stmt) => emit_if(cond, then_stmt, else_stmt.as_deref()),
         Node::While(cond, body) => emit_while(cond, body),

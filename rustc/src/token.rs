@@ -15,6 +15,7 @@ pub enum TokenKind {
     Ge,
     Assign,
     Semicolon,
+    Comma,
     LParen,
     RParen,
     Eof,
@@ -177,6 +178,10 @@ pub fn tokenize(exp: &str) -> Token {
                 ';' => {
                     chars.next();
                     TokenKind::Semicolon
+                }
+                ',' => {
+                    chars.next();
+                    TokenKind::Comma
                 }
                 '(' => {
                     chars.next();

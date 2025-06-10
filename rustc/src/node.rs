@@ -8,8 +8,8 @@ pub enum Node {
     Seq(Box<Node>, Box<Node>),
     Num(u64),
     Var(u64),
-    // Function call: name()
-    Call(String),
+    // Function call with optional arguments: name(arg1, arg2, ...)
+    Call(String, Vec<Node>),
     Assign(Box<Node>, Box<Node>),
     Add(Box<Node>, Box<Node>),
     Sub(Box<Node>, Box<Node>),
@@ -291,7 +291,7 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 }
 
 // primary ::= number |
-//             ident ('('  ')')? |
+//             ident ('(' args? ')')? |
 //             '(' expr ')' |
 fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let tok = toks.next().unwrap();
@@ -310,15 +310,26 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         }
         TokenKind::Ident(ref ident) => {
             let name = ident.clone();
-            // function call: name()
-            if let Some(next_tok) = toks.peek() {
-                if next_tok.kind == TokenKind::LParen {
+            // function call: name(args?)
+            if let Some(tok2) = toks.peek() {
+                if tok2.kind == TokenKind::LParen {
                     toks.next(); // consume '('
-                    let tok2 = toks.next().unwrap();
-                    if tok2.kind != TokenKind::RParen {
-                        panic!("expected ')' but found {:?}", tok2.kind);
+                    // parse zero or more args
+                    let args_vec = if let Some(peek) = toks.peek() {
+                        if peek.kind == TokenKind::RParen {
+                            Vec::new()
+                        } else {
+                            args(toks, vars)
+                        }
+                    } else {
+                        Vec::new()
+                    };
+                    // expect closing ')'
+                    let closing = toks.next().unwrap();
+                    if closing.kind != TokenKind::RParen {
+                        panic!("expected ')' but found {:?}", closing.kind);
                     }
-                    return Node::Call(name);
+                    return Node::Call(name, args_vec);
                 }
             }
             // variable
@@ -334,6 +345,24 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         }
         _ => unreachable!(),
     }
+}
+
+// args ::= expr (',' expr)*
+fn args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Node> {
+    let mut args = Vec::new();
+    while let Some(tok) = toks.peek() {
+        if tok.kind == TokenKind::RParen {
+            break;
+        }
+        args.push(expr(toks, vars));
+        if let Some(tok) = toks.peek() {
+            if tok.kind == TokenKind::Comma {
+                toks.next();
+                continue;
+            }
+        }
+    }
+    args
 }
 
 #[cfg(test)]
