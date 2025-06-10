@@ -78,6 +78,7 @@ assert 4 'fn main(){a=0; b=1; for ( i=0; i<3; i=i+1 ) { a=a+1; b=b+1; } return b
 # function call
 assert 5 'fn foo(){a=3;return a;} fn main(){b=foo(); return b+2;}'
 # fibonacci
-assert 55 'fn fib(n){if (n<=1) return n; return fib(n-1)+fib(n-2);} fn main(){return fib(10);}'
+fib=$(cat ./test/assets/fibonacci.rs)
+assert 55 "$fib"
 
 echo "OK"

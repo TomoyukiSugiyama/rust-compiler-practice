@@ -166,14 +166,14 @@ fn emit_call(name: &String, args: &[Node]) {
 }
 
 fn gen_prologue(name: &String) {
-    println!(".section __TEXT,__text");
+    
     println!(".globl _{}", name);
     println!("_{}:", name);
     // save old frame pointer and set up new
     println!("    stp x29, x30, [sp, #-16]!");
     println!("    mov x29, sp");
-    // reserve space for 26 local variables (26*8 bytes)
-    println!("    sub sp, sp, #208");
+    // reserve space for 3 local variables (3*16 bytes)
+    println!("    sub sp, sp, #48");
     println!("    str x0, [x29, #-8]");
 }
 
@@ -181,7 +181,7 @@ fn gen_epilogue() {
     // pop return value into x0
     println!("    ldr x0, [sp], #16");
     // deallocate local variable region
-    println!("    add sp, sp, #208");
+    println!("    add sp, sp, #48");
     // restore frame pointer and return
     println!("    ldp x29, x30, [sp], #16");
     println!("    ret");
@@ -225,7 +225,6 @@ fn gen_node(node: &Node) {
 
 /// Generate full ARM64 assembly for the AST, including prologue and epilogue.
 pub fn generate(node: &Node) {
-    // gen_prologue();
+    println!(".section __TEXT,__text");
     gen_node(node);
-    // gen_epilogue();
 }
