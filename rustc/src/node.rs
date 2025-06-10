@@ -53,101 +53,103 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 //          'while' '(' expr ')' stmt |
 //          'for' '(' expr ';' expr ';' expr ')' stmt
 fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
-    // return statement
     if let Some(tok) = toks.peek() {
-        if tok.kind == TokenKind::Return {
-            toks.next();
-            let node = expr(toks, vars);
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::Semicolon);
-            return Node::Return(Box::new(node));
-        }
-        if tok.kind == TokenKind::LBrace {
-            toks.next();
-            let mut stmts = Vec::new();
-            while let Some(tok) = toks.peek() {
-                if tok.kind == TokenKind::RBrace {
-                    break;
+        match tok.kind {
+            TokenKind::Return => {
+                toks.next();
+                let node = expr(toks, vars);
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::Semicolon);
+                return Node::Return(Box::new(node));
+            }
+            TokenKind::LBrace => {
+                toks.next();
+                let mut stmts = Vec::new();
+                while let Some(tok) = toks.peek() {
+                    if tok.kind == TokenKind::RBrace {
+                        break;
+                    }
+                    stmts.push(stmt(toks, vars));
                 }
-                stmts.push(stmt(toks, vars));
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::RBrace);
+                let mut iter = stmts.into_iter();
+                let mut root = iter.next().unwrap();
+                for next in iter {
+                    root = Node::Seq(Box::new(root), Box::new(next));
+                }
+                return root;
             }
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::RBrace);
-            let mut iter = stmts.into_iter();
-            let mut root = iter.next().unwrap();
-            for next in iter {
-                root = Node::Seq(Box::new(root), Box::new(next));
-            }
-            return root;
-        }
-        if tok.kind == TokenKind::If {
-            // parse if statement: 'if' '(' expr ')' stmt ('else' stmt)?
-            toks.next();
-            // expect '('
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::LParen);
-            // parse condition
-            let cond = expr(toks, vars);
-            // expect ')'
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::RParen);
-            // parse then branch
-            let then_stmt = stmt(toks, vars);
-            // parse optional else branch
-            let else_stmt = if let Some(tok) = toks.peek() {
-                if tok.kind == TokenKind::Else {
-                    toks.next();
-                    Some(Box::new(stmt(toks, vars)))
+            TokenKind::If => {
+                // parse if statement: 'if' '(' expr ')' stmt ('else' stmt)?
+                toks.next();
+                // expect '('
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::LParen);
+                // parse condition
+                let cond = expr(toks, vars);
+                // expect ')'
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::RParen);
+                // parse then branch
+                let then_stmt = stmt(toks, vars);
+                // parse optional else branch
+                let else_stmt = if let Some(tok) = toks.peek() {
+                    if tok.kind == TokenKind::Else {
+                        toks.next();
+                        Some(Box::new(stmt(toks, vars)))
+                    } else {
+                        None
+                    }
                 } else {
                     None
-                }
-            } else {
-                None
-            };
-            return Node::If(Box::new(cond), Box::new(then_stmt), else_stmt);
-        }
-        if tok.kind == TokenKind::While {
-            // parse while statement: 'while' '(' expr ')' stmt
-            toks.next();
-            // expect '('
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::LParen);
-            // parse condition
-            let cond = expr(toks, vars);
-            // expect ')'
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::RParen);
-            // parse body
-            let body = stmt(toks, vars);
-            return Node::While(Box::new(cond), Box::new(body));
-        }
-        if tok.kind == TokenKind::For {
-            // parse for statement: 'for' '(' expr ';' expr ';' expr ')' stmt
-            toks.next();
-            // expect '('
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::LParen);
-            // parse init
-            let init = expr(toks, vars);
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::Semicolon);
-            // parse condition
-            let cond = expr(toks, vars);
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::Semicolon);
-            // parse update
-            let update = expr(toks, vars);
-            // expect ')'
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::RParen);
-            // parse body
-            let body = stmt(toks, vars);
-            return Node::For(
-                Box::new(init),
-                Box::new(cond),
-                Box::new(update),
-                Box::new(body),
-            );
+                };
+                return Node::If(Box::new(cond), Box::new(then_stmt), else_stmt);
+            }
+            TokenKind::While => {
+                // parse while statement: 'while' '(' expr ')' stmt
+                toks.next();
+                // expect '('
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::LParen);
+                // parse condition
+                let cond = expr(toks, vars);
+                // expect ')'
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::RParen);
+                // parse body
+                let body = stmt(toks, vars);
+                return Node::While(Box::new(cond), Box::new(body));
+            }
+            TokenKind::For => {
+                // parse for statement: 'for' '(' expr ';' expr ';' expr ')' stmt
+                toks.next();
+                // expect '('
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::LParen);
+                // parse init
+                let init = expr(toks, vars);
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::Semicolon);
+                // parse condition
+                let cond = expr(toks, vars);
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::Semicolon);
+                // parse update
+                let update = expr(toks, vars);
+                // expect ')'
+                let tok = toks.next().unwrap();
+                expect_token(&tok, &TokenKind::RParen);
+                // parse body
+                let body = stmt(toks, vars);
+                return Node::For(
+                    Box::new(init),
+                    Box::new(cond),
+                    Box::new(update),
+                    Box::new(body),
+                );
+            }
+            _ => {}
         }
     }
     // expression statement
@@ -317,7 +319,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             };
             Node::Var(offset)
         }
-        _ => unreachable!(),
+        _ => unreachable!("unexpected token: {:?}", tok.kind),
     }
 }
 
