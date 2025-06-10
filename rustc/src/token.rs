@@ -48,19 +48,7 @@ impl Token {
     }
 }
 
-use crate::check::set_current_exp;
-
-/// Report an error at the given position in `exp` and exit.
-fn error_at(exp: &str, pos: usize, msg: &str) -> ! {
-    // Print the input and a caret under the error position
-    println!("{}", exp);
-    println!("{}^ {}", " ".repeat(pos), msg);
-    panic!("{}", msg);
-}
-
-pub fn at_eof(cur: &Token) -> bool {
-    matches!(&cur.kind, TokenKind::Eof)
-}
+use crate::check::{set_current_exp, error_at};
 
 /// Tokenizes an arithmetic expression into a linked list of tokens.
 /// Supports positive integers, identifiers, operators, and delimiters.
@@ -260,24 +248,6 @@ mod tests {
                 &TokenKind::Eof,
             ]
         );
-    }
-
-    #[test]
-    fn test_at_eof() {
-        let head = tokenize("1");
-        let first = head.next.as_ref().unwrap();
-        let eof_tok = first.next.as_ref().unwrap();
-        assert!(at_eof(eof_tok));
-    }
-
-    #[test]
-    fn test_iter_eof_flag() {
-        let mut iter = tokenize("1").into_iter();
-        let one = iter.next().unwrap();
-        assert!(!at_eof(&one));
-        let eof = iter.next().unwrap();
-        assert!(at_eof(&eof));
-        assert!(iter.next().is_none());
     }
 
     #[test]
