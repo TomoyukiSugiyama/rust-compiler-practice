@@ -1,3 +1,4 @@
+use crate::check::expect_token;
 use crate::token::*;
 use crate::variable::Variable;
 use std::iter::Peekable;
@@ -58,9 +59,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             toks.next();
             let node = expr(toks, vars);
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::Semicolon {
-                panic!("expected ';' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, ";");
             return Node::Return(Box::new(node));
         }
         if tok.kind == TokenKind::LBrace {
@@ -73,9 +72,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 stmts.push(stmt(toks, vars));
             }
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::RBrace {
-                panic!("expected '}}' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, "}");
             let mut iter = stmts.into_iter();
             let mut root = iter.next().unwrap();
             for next in iter {
@@ -88,16 +85,12 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             toks.next();
             // expect '('
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::LParen {
-                panic!("expected '(' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, "(");
             // parse condition
             let cond = expr(toks, vars);
             // expect ')'
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::RParen {
-                panic!("expected ')' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, ")");
             // parse then branch
             let then_stmt = stmt(toks, vars);
             // parse optional else branch
@@ -118,16 +111,12 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             toks.next();
             // expect '('
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::LParen {
-                panic!("expected '(' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, "(");
             // parse condition
             let cond = expr(toks, vars);
             // expect ')'
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::RParen {
-                panic!("expected ')' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, ")");
             // parse body
             let body = stmt(toks, vars);
             return Node::While(Box::new(cond), Box::new(body));
@@ -137,28 +126,20 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             toks.next();
             // expect '('
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::LParen {
-                panic!("expected '(' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, "(");
             // parse init
             let init = expr(toks, vars);
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::Semicolon {
-                panic!("expected ';' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, ";");
             // parse condition
             let cond = expr(toks, vars);
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::Semicolon {
-                panic!("expected ';' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, ";");
             // parse update
             let update = expr(toks, vars);
             // expect ')'
             let tok = toks.next().unwrap();
-            if tok.kind != TokenKind::RParen {
-                panic!("expected ')' but found {:?}", tok.kind);
-            }
+            expect_token(&tok, ")");
             // parse body
             let body = stmt(toks, vars);
             return Node::For(
@@ -172,9 +153,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     // expression statement
     let node = expr(toks, vars);
     let tok = toks.next().unwrap();
-    if tok.kind != TokenKind::Semicolon {
-        panic!("expected ';' but found {:?}", tok.kind);
-    }
+    expect_token(&tok, ";");
     node
 }
 
@@ -302,11 +281,8 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             let node = expr(toks, vars);
             // Expect closing ')'
             let closing = toks.next().unwrap();
-            if closing.kind == TokenKind::RParen {
-                node
-            } else {
-                panic!("expected ')' but found {:?}", closing.kind);
-            }
+            expect_token(&closing, ")");
+            node
         }
         TokenKind::Ident(ref ident) => {
             let name = ident.clone();
@@ -326,9 +302,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                     };
                     // expect closing ')'
                     let closing = toks.next().unwrap();
-                    if closing.kind != TokenKind::RParen {
-                        panic!("expected ')' but found {:?}", closing.kind);
-                    }
+                    expect_token(&closing, ")");
                     return Node::Call(name, args_vec);
                 }
             }

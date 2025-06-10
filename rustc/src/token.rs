@@ -47,19 +47,14 @@ impl Token {
     }
 }
 
+use crate::check::set_current_exp;
+
 /// Report an error at the given position in `exp` and exit.
 fn error_at(exp: &str, pos: usize, msg: &str) -> ! {
     // Print the input and a caret under the error position
     println!("{}", exp);
     println!("{}^ {}", " ".repeat(pos), msg);
     panic!("{}", msg);
-}
-
-pub fn expect_number(cur: &Token, exp: &str) -> u64 {
-    match &cur.kind {
-        TokenKind::Number(n) => *n,
-        _ => error_at(exp, cur.pos, "数ではありません"),
-    }
 }
 
 pub fn at_eof(cur: &Token) -> bool {
@@ -70,6 +65,7 @@ pub fn at_eof(cur: &Token) -> bool {
 /// Supports positive integers, identifiers, operators, and delimiters.
 /// Returns the head `Token`, whose chained `next` pointers end with an `Eof` token.
 pub fn tokenize(exp: &str) -> Token {
+    set_current_exp(exp);
     // Build linked list with a sentinel head (pos=0)
     let mut head = Token {
         kind: TokenKind::Start,
@@ -305,14 +301,6 @@ mod tests {
     #[should_panic(expected = "無効な文字です")]
     fn test_tokenize_panic_on_invalid_char() {
         let _ = tokenize("?");
-    }
-
-    #[test]
-    #[should_panic(expected = "数ではありません")]
-    fn test_expect_number_panic() {
-        let head = tokenize("1+2");
-        let op_tok = head.next.as_ref().unwrap().next.as_ref().unwrap();
-        expect_number(op_tok, "1+2");
     }
 
     #[test]
