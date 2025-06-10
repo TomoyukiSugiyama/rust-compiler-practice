@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn test_tokenize_all_operators() {
-        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for";
+        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for fn";
         let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
         assert_eq!(
             kinds,
@@ -370,6 +370,7 @@ mod tests {
                 TokenKind::Else,
                 TokenKind::While,
                 TokenKind::For,
+                TokenKind::Fn,
                 TokenKind::Eof,
             ]
         );
@@ -396,6 +397,35 @@ mod tests {
                 TokenKind::Comma,
                 TokenKind::Number(2),
                 TokenKind::RParen,
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_fn_keyword() {
+        let kinds: Vec<TokenKind> = tokenize("fn").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Fn, TokenKind::Eof,]);
+    }
+
+    #[test]
+    fn test_tokenize_fn_declaration() {
+        let kinds: Vec<TokenKind> = tokenize("fn foo() { return 42; }")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Fn,
+                TokenKind::Ident("foo".to_string()),
+                TokenKind::LParen,
+                TokenKind::RParen,
+                TokenKind::LBrace,
+                TokenKind::Return,
+                TokenKind::Number(42),
+                TokenKind::Semicolon,
+                TokenKind::RBrace,
                 TokenKind::Eof,
             ]
         );
