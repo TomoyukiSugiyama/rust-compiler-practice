@@ -8,7 +8,7 @@ $ mkdir -p rustc/bin
 
 ```bash
 $ cd rustc
-$ ./rustc/test/test.sh
+$ ./test/test.sh
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.00s
      Running `target/debug/rustc 'a=0; b=1; for ( i=0; i<3; i=i+1 ) { a=a+1; b=b+1; } return b;'`
 a=0; b=1; for ( i=0; i<3; i=i+1 ) { a=a+1; b=b+1; } return b; => 4
@@ -21,10 +21,11 @@ OK
 ## 1. Generate `test-foo.s`
 
 ```bash
-$ cargo run  --manifest-path rustc/Cargo.toml -- 'foo();' > rustc/bin/test-foo.s
+$ cd rustc
+$ cargo run -- 'foo();' > rustc/bin/test-foo.s
 ```
 
-## 2. edit test-foo.s
+## 2. Edit `test-foo.s`
 
 ```
 < .globl _main
