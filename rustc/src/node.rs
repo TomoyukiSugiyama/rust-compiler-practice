@@ -59,7 +59,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             toks.next();
             let node = expr(toks, vars);
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::Semicolon);
+            expect_token(&tok, &TokenKind::Semicolon);
             return Node::Return(Box::new(node));
         }
         if tok.kind == TokenKind::LBrace {
@@ -72,7 +72,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 stmts.push(stmt(toks, vars));
             }
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::RBrace);
+            expect_token(&tok, &TokenKind::RBrace);
             let mut iter = stmts.into_iter();
             let mut root = iter.next().unwrap();
             for next in iter {
@@ -85,12 +85,12 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             toks.next();
             // expect '('
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::LParen);
+            expect_token(&tok, &TokenKind::LParen);
             // parse condition
             let cond = expr(toks, vars);
             // expect ')'
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::RParen);
+            expect_token(&tok, &TokenKind::RParen);
             // parse then branch
             let then_stmt = stmt(toks, vars);
             // parse optional else branch
@@ -111,12 +111,12 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             toks.next();
             // expect '('
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::LParen);
+            expect_token(&tok, &TokenKind::LParen);
             // parse condition
             let cond = expr(toks, vars);
             // expect ')'
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::RParen);
+            expect_token(&tok, &TokenKind::RParen);
             // parse body
             let body = stmt(toks, vars);
             return Node::While(Box::new(cond), Box::new(body));
@@ -126,20 +126,20 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             toks.next();
             // expect '('
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::LParen);
+            expect_token(&tok, &TokenKind::LParen);
             // parse init
             let init = expr(toks, vars);
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::Semicolon);
+            expect_token(&tok, &TokenKind::Semicolon);
             // parse condition
             let cond = expr(toks, vars);
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::Semicolon);
+            expect_token(&tok, &TokenKind::Semicolon);
             // parse update
             let update = expr(toks, vars);
             // expect ')'
             let tok = toks.next().unwrap();
-            expect_token(&tok, TokenKind::RParen);
+            expect_token(&tok, &TokenKind::RParen);
             // parse body
             let body = stmt(toks, vars);
             return Node::For(
@@ -153,7 +153,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     // expression statement
     let node = expr(toks, vars);
     let tok = toks.next().unwrap();
-    expect_token(&tok, TokenKind::Semicolon);
+    expect_token(&tok, &TokenKind::Semicolon);
     node
 }
 
@@ -281,7 +281,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             let node = expr(toks, vars);
             // Expect closing ')'
             let closing = toks.next().unwrap();
-            expect_token(&closing, TokenKind::RParen);
+            expect_token(&closing, &TokenKind::RParen);
             node
         }
         TokenKind::Ident(ref ident) => {
@@ -302,7 +302,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                     };
                     // expect closing ')'
                     let closing = toks.next().unwrap();
-                    expect_token(&closing, TokenKind::RParen);
+                    expect_token(&closing, &TokenKind::RParen);
                     return Node::Call(name, args_vec);
                 }
             }
