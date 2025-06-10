@@ -41,8 +41,8 @@ OK
 ## 3. Build and run the integration test
 
 ```sh
-% cargo run --manifest-path rustc/test/function-call/Cargo.toml  (git)-[main]
-   Compiling foo v0.1.0 (/Users/tomoyuki.sugiyama/Work/GitHub/uzabase/rust-compiler-practice/rustc/test/function-call)
+% cd rustc
+% cargo run --manifest-path test/function-call/Cargo.toml
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
      Running `rustc/test/function-call/target/debug/foo`
 foo
