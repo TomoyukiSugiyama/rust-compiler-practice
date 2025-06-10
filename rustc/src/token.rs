@@ -384,4 +384,30 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn test_tokenize_comma() {
+        let kinds: Vec<TokenKind> = tokenize(",").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Comma, TokenKind::Eof]);
+    }
+
+    #[test]
+    fn test_tokenize_call_tokens() {
+        let kinds: Vec<TokenKind> = tokenize("foo(1,2)")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Ident("foo".to_string()),
+                TokenKind::LParen,
+                TokenKind::Number(1),
+                TokenKind::Comma,
+                TokenKind::Number(2),
+                TokenKind::RParen,
+                TokenKind::Eof,
+            ]
+        );
+    }
 }
