@@ -5,7 +5,7 @@ unsafe extern "C" {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn foo() {
-    println!("foo bar");
+    println!("foo");
 }
 
 fn main() {

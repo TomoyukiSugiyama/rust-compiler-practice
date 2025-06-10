@@ -4,9 +4,13 @@
 $ mkdir -p rustc/bin
 ```
 
-# test
+# Test
 
 ```bash
+# unit test
+$ cd rustc
+$ cargo test
+# integration test
 $ cd rustc
 $ ./test/test.sh
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.00s
@@ -16,29 +20,30 @@ OK
 
 ```
 
-# cross compile
+# Function Call Test
 
 ## 1. Generate `test-foo.s`
 
 ```bash
-$ cd rustc
-$ cargo run -- 'foo();' > bin/test-foo.s
+% cd rustc
+% cargo run -- 'foo();' > bin/test-foo.s
 ```
 
 ## 2. Edit `test-foo.s`
 
-```
+```diff
 < .globl _main
 < _main:
 > .globl _test
 > _test:
 ```
 
-## 3. Build and run the cross-compile example
+## 3. Build and run the integration test
 
-```bash
-$ cargo run --manifest-path rustc/test/cross-compile/Cargo.toml
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.00s
-     Running `target/debug/foo`
- foo bar
+```sh
+% cargo run --manifest-path rustc/test/function-call/Cargo.toml  (git)-[main]
+   Compiling foo v0.1.0 (/Users/tomoyuki.sugiyama/Work/GitHub/uzabase/rust-compiler-practice/rustc/test/function-call)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running `rustc/test/function-call/target/debug/foo`
+foo
 ```
