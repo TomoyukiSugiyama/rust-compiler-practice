@@ -22,7 +22,7 @@ OK
 
 ```bash
 $ cd rustc
-$ cargo run -- 'foo();' > rustc/bin/test-foo.s
+$ cargo run -- 'foo();' > bin/test-foo.s
 ```
 
 ## 2. Edit `test-foo.s`
