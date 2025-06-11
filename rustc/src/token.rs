@@ -52,6 +52,40 @@ impl Token {
 
 use crate::check::{error_at, set_current_exp};
 
+use std::iter::Peekable;
+use std::str::CharIndices;
+
+/// Reads a sequence of digits and returns the parsed number.
+fn read_number(chars: &mut Peekable<CharIndices>) -> u64 {
+    let mut num = 0u64;
+    while let Some(&(_, ch)) = chars.peek() {
+        if ch.is_ascii_digit() {
+            num = num
+                .checked_mul(10)
+                .and_then(|n| n.checked_add(ch.to_digit(10).unwrap() as u64))
+                .unwrap();
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    num
+}
+
+/// Reads an alphanumeric sequence and returns it as a string.
+fn read_ident(chars: &mut Peekable<CharIndices>) -> String {
+    let mut word = String::new();
+    while let Some(&(_, ch)) = chars.peek() {
+        if ch.is_ascii_alphanumeric() {
+            word.push(ch);
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    word
+}
+
 /// Tokenizes an arithmetic expression into a linked list of tokens.
 /// Supports positive integers, identifiers, operators, and delimiters.
 /// Returns the head `Token`, whose chained `next` pointers end with an `Eof` token.
@@ -70,33 +104,12 @@ pub fn tokenize(exp: &str) -> Token {
         if c.is_whitespace() {
             chars.next();
         } else if c.is_ascii_digit() {
-            // Read full number starting at i
             let start = i;
-            let mut num = 0u64;
-            while let Some(&(_, dch)) = chars.peek() {
-                if dch.is_ascii_digit() {
-                    num = num
-                        .checked_mul(10)
-                        .and_then(|n| n.checked_add(dch.to_digit(10).unwrap() as u64))
-                        .unwrap();
-                    chars.next();
-                } else {
-                    break;
-                }
-            }
+            let num = read_number(&mut chars);
             tail = tail.push(TokenKind::Number(num), start);
         } else if c.is_ascii_alphabetic() {
-            // parse identifiers and keywords
             let start = i;
-            let mut word = String::new();
-            while let Some(&(_, ch)) = chars.peek() {
-                if ch.is_ascii_alphanumeric() {
-                    word.push(ch);
-                    chars.next();
-                } else {
-                    break;
-                }
-            }
+            let word = read_ident(&mut chars);
             let kind = match word.as_str() {
                 "return" => TokenKind::Return,
                 "if" => TokenKind::If,
