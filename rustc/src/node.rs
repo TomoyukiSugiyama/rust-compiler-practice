@@ -865,4 +865,135 @@ mod tests {
         let mut vars = Variable::new("".to_string(), 0, None);
         program(&mut iter, &mut vars);
     }
+
+    #[test]
+    #[should_panic(expected = "expected LParen")]
+    fn test_error_fn_missing_lparen() {
+        let mut iter = tokenize("fn main) { }").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RParen")]
+    fn test_error_fn_missing_rparen() {
+        let mut iter = tokenize("fn main( {}").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected LBrace")]
+    fn test_error_fn_missing_lbrace() {
+        let mut iter = tokenize("fn main() )").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RBrace")]
+    fn test_error_fn_missing_rbrace() {
+        let mut iter = tokenize("fn main() { 1;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    // If statement error tests
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_if_missing_condition() {
+        let mut iter = tokenize("if () 1;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected statement")]
+    fn test_error_if_missing_then_branch() {
+        let mut iter = tokenize("if (1)").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    // While statement error tests
+    #[test]
+    #[should_panic(expected = "expected LParen")]
+    fn test_error_while_missing_lparen() {
+        let mut iter = tokenize("while 1) 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RParen")]
+    fn test_error_while_missing_rparen() {
+        let mut iter = tokenize("while (1 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_while_missing_condition() {
+        let mut iter = tokenize("while () 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected statement")]
+    fn test_error_while_missing_body() {
+        let mut iter = tokenize("while (1)").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    // For statement error tests
+    #[test]
+    #[should_panic(expected = "expected LParen")]
+    fn test_error_for_missing_lparen() {
+        let mut iter = tokenize("for 1;2;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_for_missing_init() {
+        let mut iter = tokenize("for (;2;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_for_missing_cond() {
+        let mut iter = tokenize("for (1;;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_for_missing_update() {
+        let mut iter = tokenize("for (1;2;) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RParen")]
+    fn test_error_for_missing_rparen() {
+        let mut iter = tokenize("for (1;2;3 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected statement")]
+    fn test_error_for_missing_body() {
+        let mut iter = tokenize("for (1;2;3)").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
 }
