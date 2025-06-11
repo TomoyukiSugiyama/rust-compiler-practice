@@ -108,7 +108,7 @@ fn lookup_keyword(word: &str) -> Option<TokenKind> {
     None
 }
 
-/// Slice of operator lexemes mapped to their TokenKind, sorted by descending length.
+/// Slice of operator lexemes mapped to their TokenKind, sorted by descending length to match longest first.
 const OPERATORS: &[(&str, TokenKind)] = &[
     ("==", TokenKind::EqEq),
     ("!=", TokenKind::Ne),
@@ -385,6 +385,29 @@ mod tests {
                 TokenKind::Number(42),
                 TokenKind::Semicolon,
                 TokenKind::RBrace,
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_arrow() {
+        let kinds: Vec<TokenKind> = tokenize("->").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Arrow, TokenKind::Eof]);
+    }
+
+    #[test]
+    fn test_tokenize_arrow_with_ident() {
+        let kinds: Vec<TokenKind> = tokenize("foo->bar")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Ident("foo".to_string()),
+                TokenKind::Arrow,
+                TokenKind::Ident("bar".to_string()),
                 TokenKind::Eof,
             ]
         );
