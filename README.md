@@ -29,7 +29,7 @@ OK
 # debug function call
 % cargo run -- 'fn test(){debug2(1, 2);}' > bin/test-debug.s
 # debug fibonacci
-$ cargo run -- 'fn fib(n) { if (n <= 1) { return n; } return fib(n - 1) + fib(n - 2); } fn test() { res = fib(10);debug1(res); return res; }' > bin/test-debug.s
+$ fib=$(cat test/assets/debug-fibonacci.rs);cargo run -- $fib > ./bin/test-debug.s
 ```
 
 
