@@ -92,6 +92,10 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         if peek.kind == TokenKind::RBrace {
             break;
         }
+        // error if EOF reached before closing brace
+        if peek.kind == TokenKind::Eof {
+            error_tok(peek, "expected RBrace");
+        }
         stmts.push(stmt(toks, vars));
     }
     // expect '}'
@@ -117,6 +121,12 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 //          'while' '(' expr ')' stmt |
 //          'for' '(' expr ';' expr ';' expr ')' stmt
 fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+    // detect EOF as missing statement
+    if let Some(tok) = toks.peek() {
+        if tok.kind == TokenKind::Eof {
+            error_tok(tok, "expected statement");
+        }
+    }
     if let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::Return => {
@@ -131,6 +141,10 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 while let Some(tok) = toks.peek() {
                     if tok.kind == TokenKind::RBrace {
                         break;
+                    }
+                    // error if EOF before closing brace
+                    if tok.kind == TokenKind::Eof {
+                        error_tok(tok, "expected RBrace");
                     }
                     stmts.push(stmt(toks, vars));
                 }
@@ -147,6 +161,12 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 toks.next();
                 // expect '('
                 expect_next(toks, TokenKind::LParen);
+                // error if no condition expression
+                if let Some(peek) = toks.peek() {
+                    if peek.kind == TokenKind::RParen || peek.kind == TokenKind::Eof {
+                        error_tok(peek, "expected expression");
+                    }
+                }
                 // parse condition
                 let cond = expr(toks, vars);
                 // expect ')'
@@ -171,6 +191,12 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 toks.next();
                 // expect '('
                 expect_next(toks, TokenKind::LParen);
+                // error if no condition expression
+                if let Some(peek) = toks.peek() {
+                    if peek.kind == TokenKind::RParen || peek.kind == TokenKind::Eof {
+                        error_tok(peek, "expected expression");
+                    }
+                }
                 // parse condition
                 let cond = expr(toks, vars);
                 // expect ')'
@@ -184,12 +210,30 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 toks.next();
                 // expect '('
                 expect_next(toks, TokenKind::LParen);
+                // error if missing init expression
+                if let Some(peek) = toks.peek() {
+                    if peek.kind == TokenKind::Semicolon || peek.kind == TokenKind::Eof {
+                        error_tok(peek, "expected expression");
+                    }
+                }
                 // parse init
                 let init = expr(toks, vars);
                 expect_next(toks, TokenKind::Semicolon);
+                // error if missing condition expression
+                if let Some(peek) = toks.peek() {
+                    if peek.kind == TokenKind::Semicolon || peek.kind == TokenKind::Eof {
+                        error_tok(peek, "expected expression");
+                    }
+                }
                 // parse condition
                 let cond = expr(toks, vars);
                 expect_next(toks, TokenKind::Semicolon);
+                // error if missing update expression
+                if let Some(peek) = toks.peek() {
+                    if peek.kind == TokenKind::RParen || peek.kind == TokenKind::Eof {
+                        error_tok(peek, "expected expression");
+                    }
+                }
                 // parse update
                 let update = expr(toks, vars);
                 // expect ')'
