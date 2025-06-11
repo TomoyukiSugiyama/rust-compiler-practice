@@ -67,10 +67,10 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     };
     // expect '('
     expect_next(toks, TokenKind::LParen);
-    // parse optional parameters
+    // parse optional parameters only if the next token is an identifier
     let mut args_vec = Vec::new();
     if let Some(peek) = toks.peek() {
-        if peek.kind != TokenKind::RParen {
+        if let TokenKind::Ident(_) = peek.kind {
             args_vec = function_args(toks, vars);
         }
     }
