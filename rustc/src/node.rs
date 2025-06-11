@@ -96,12 +96,17 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     }
     // expect '}'
     expect_next(toks, TokenKind::RBrace);
-    // fold into a single Node
-    let mut iter = stmts.into_iter();
-    let mut body = iter.next().unwrap();
-    for next in iter {
-        body = Node::Seq(Box::new(body), Box::new(next));
-    }
+    // fold into a single Node, default to 0 if empty
+    let body = if stmts.is_empty() {
+        Node::Num(0)
+    } else {
+        let mut iter = stmts.into_iter();
+        let mut b = iter.next().unwrap();
+        for next in iter {
+            b = Node::Seq(Box::new(b), Box::new(next));
+        }
+        b
+    };
     Node::Function(name, args_vec, Box::new(body))
 }
 
