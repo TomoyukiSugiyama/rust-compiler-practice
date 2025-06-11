@@ -16,6 +16,7 @@ pub enum TokenKind {
     Assign,
     Semicolon,
     Comma,
+    Colon,
     LParen,
     RParen,
     Eof,
@@ -27,6 +28,7 @@ pub enum TokenKind {
     Fn,
     LBrace,
     RBrace,
+    I32,
 }
 
 #[derive(Debug)]
@@ -48,7 +50,7 @@ impl Token {
     }
 }
 
-use crate::check::{set_current_exp, error_at};
+use crate::check::{error_at, set_current_exp};
 
 /// Tokenizes an arithmetic expression into a linked list of tokens.
 /// Supports positive integers, identifiers, operators, and delimiters.
@@ -102,6 +104,7 @@ pub fn tokenize(exp: &str) -> Token {
                 "while" => TokenKind::While,
                 "for" => TokenKind::For,
                 "fn" => TokenKind::Fn,
+                "i32" => TokenKind::I32,
                 _ => TokenKind::Ident(word),
             };
             tail = tail.push(kind, start);
@@ -168,6 +171,10 @@ pub fn tokenize(exp: &str) -> Token {
                 ',' => {
                     chars.next();
                     TokenKind::Comma
+                }
+                ':' => {
+                    chars.next();
+                    TokenKind::Colon
                 }
                 '(' => {
                     chars.next();

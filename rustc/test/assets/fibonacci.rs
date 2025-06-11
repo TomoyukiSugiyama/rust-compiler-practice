@@ -1,4 +1,4 @@
-fn fib(n) {
+fn fib(n: i32) -> i32 {
     if (n <= 1) {
         return n;
     }
@@ -6,5 +6,5 @@ fn fib(n) {
 }
 
 fn main() {
-    return fib(10);
+    fib(10);
 }

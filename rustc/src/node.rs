@@ -48,7 +48,7 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     root
 }
 
-// function ::= 'fn' ident '(' args? ')' '{' stmt* '}'
+// function ::= 'fn' ident '(' function_args? ')' ('->' type)? '{' stmt* '}'
 fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     // consume 'fn'
     let tok = toks.next().unwrap();
@@ -64,16 +64,28 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     // expect '('
     let tok = toks.next().unwrap();
     expect_token(&tok, &TokenKind::LParen);
-    // parse optional arguments
+    // parse optional parameters
     let mut args_vec = Vec::new();
     if let Some(peek) = toks.peek() {
         if peek.kind != TokenKind::RParen {
-            args_vec = args(toks, vars);
+            args_vec = function_args(toks, vars);
         }
     }
     // expect ')'
     let tok = toks.next().unwrap();
     expect_token(&tok, &TokenKind::RParen);
+    // optional return type '-> type'
+    if let Some(peek) = toks.peek() {
+        if peek.kind == TokenKind::Minus {
+            // consume '->'
+            toks.next(); // Minus
+            let tok = toks.next().unwrap();
+            expect_token(&tok, &TokenKind::Gt);
+            // parse type (only i32 supported)
+            let tok = toks.next().unwrap();
+            expect_token(&tok, &TokenKind::I32);
+        }
+    }
     // expect '{'
     let tok = toks.next().unwrap();
     expect_token(&tok, &TokenKind::LBrace);
@@ -383,6 +395,51 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         }
         _ => unreachable!("unexpected token: {:?}", tok.kind),
     }
+}
+
+// function_args ::= ident ':' type (',' ident ':' type)*
+fn function_args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Node> {
+    let mut args = Vec::new();
+    // Parse one or more function_arg ::= ident ':' type, separated by commas
+    loop {
+        // identifier
+        let tok = toks.next().unwrap();
+        let name = if let TokenKind::Ident(ident) = &tok.kind {
+            ident.clone()
+        } else {
+            unreachable!()
+        };
+        // ':'
+        let tok2 = toks.next().unwrap();
+        expect_token(&tok2, &TokenKind::Colon);
+        // type (e.g., 'i32')
+        let tok3 = toks.next().unwrap();
+        if let TokenKind::I32 = tok3.kind {
+            // ignore actual type
+        } else {
+            unreachable!()
+        }
+        // assign new offset for this parameter
+        let off = if let Some(off) = vars.find(&name) {
+            off
+        } else {
+            let last = vars.next.as_ref().map(|v| v.offset).unwrap_or(vars.offset);
+            let new_off = last + 8;
+            vars.push(name.clone(), new_off);
+            new_off
+        };
+        // represent parameter as a Var node
+        args.push(Node::Var(off));
+        // if a comma follows, consume it and continue parsing
+        if let Some(peek) = toks.peek() {
+            if peek.kind == TokenKind::Comma {
+                toks.next();
+                continue;
+            }
+        }
+        break;
+    }
+    args
 }
 
 // args ::= expr (',' expr)*
