@@ -107,6 +107,59 @@ fn lookup_keyword(word: &str) -> Option<TokenKind> {
     None
 }
 
+/// Reads an operator or delimiter and returns the TokenKind, consuming chars as needed.
+fn read_operator(chars: &mut Peekable<CharIndices>, exp: &str, pos: usize) -> TokenKind {
+    let kind = match chars.next().unwrap().1 {
+        '=' => {
+            if let Some(&(_, '=')) = chars.peek() {
+                chars.next();
+                TokenKind::EqEq
+            } else {
+                TokenKind::Assign
+            }
+        }
+        '!' => {
+            if let Some(&(_, '=')) = chars.peek() {
+                chars.next();
+                TokenKind::Ne
+            } else {
+                error_at(exp, pos, "無効な文字です");
+            }
+        }
+        '<' => {
+            if let Some(&(_, '=')) = chars.peek() {
+                chars.next();
+                TokenKind::Le
+            } else {
+                TokenKind::Lt
+            }
+        }
+        '>' => {
+            if let Some(&(_, '=')) = chars.peek() {
+                chars.next();
+                TokenKind::Ge
+            } else {
+                TokenKind::Gt
+            }
+        }
+        '+' => TokenKind::Plus,
+        '-' => TokenKind::Minus,
+        '*' => TokenKind::Star,
+        '/' => TokenKind::Slash,
+        ';' => TokenKind::Semicolon,
+        ',' => TokenKind::Comma,
+        ':' => TokenKind::Colon,
+        '(' => TokenKind::LParen,
+        ')' => TokenKind::RParen,
+        '{' => TokenKind::LBrace,
+        '}' => TokenKind::RBrace,
+        _ => {
+            error_at(exp, pos, "無効な文字です");
+        }
+    };
+    kind
+}
+
 /// Tokenizes an arithmetic expression into a linked list of tokens.
 /// Supports positive integers, identifiers, operators, and delimiters.
 /// Returns the head `Token`, whose chained `next` pointers end with an `Eof` token.
@@ -136,91 +189,7 @@ pub fn tokenize(exp: &str) -> Token {
         } else {
             // Operators and delimiters
             let pos = i;
-            let kind = match c {
-                '=' => {
-                    chars.next();
-                    if let Some(&(_, '=')) = chars.peek() {
-                        chars.next();
-                        TokenKind::EqEq
-                    } else {
-                        TokenKind::Assign
-                    }
-                }
-                '!' => {
-                    chars.next();
-                    if let Some(&(_, '=')) = chars.peek() {
-                        chars.next();
-                        TokenKind::Ne
-                    } else {
-                        error_at(exp, i, "無効な文字です");
-                    }
-                }
-                '<' => {
-                    chars.next();
-                    if let Some(&(_, '=')) = chars.peek() {
-                        chars.next();
-                        TokenKind::Le
-                    } else {
-                        TokenKind::Lt
-                    }
-                }
-                '>' => {
-                    chars.next();
-                    if let Some(&(_, '=')) = chars.peek() {
-                        chars.next();
-                        TokenKind::Ge
-                    } else {
-                        TokenKind::Gt
-                    }
-                }
-                '+' => {
-                    chars.next();
-                    TokenKind::Plus
-                }
-                '-' => {
-                    chars.next();
-                    TokenKind::Minus
-                }
-                '*' => {
-                    chars.next();
-                    TokenKind::Star
-                }
-                '/' => {
-                    chars.next();
-                    TokenKind::Slash
-                }
-                ';' => {
-                    chars.next();
-                    TokenKind::Semicolon
-                }
-                ',' => {
-                    chars.next();
-                    TokenKind::Comma
-                }
-                ':' => {
-                    chars.next();
-                    TokenKind::Colon
-                }
-                '(' => {
-                    chars.next();
-                    TokenKind::LParen
-                }
-                ')' => {
-                    chars.next();
-                    TokenKind::RParen
-                }
-                '{' => {
-                    chars.next();
-                    TokenKind::LBrace
-                }
-                '}' => {
-                    chars.next();
-                    TokenKind::RBrace
-                }
-                _ => {
-                    error_at(exp, i, "無効な文字です");
-                }
-            };
+            let kind = read_operator(&mut chars, exp, pos);
             tail = tail.push(kind, pos);
         }
     }
