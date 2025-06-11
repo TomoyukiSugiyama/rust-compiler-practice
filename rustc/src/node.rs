@@ -29,6 +29,12 @@ pub enum Node {
     For(Box<Node>, Box<Node>, Box<Node>, Box<Node>),
 }
 
+fn expect_next(toks: &mut Peekable<TokenIter>, expected: TokenKind) -> Token {
+    let tok = toks.next().unwrap();
+    expect_token(&tok, &expected);
+    tok
+}
+
 // program ::= function*
 pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let mut funcs = Vec::new();
@@ -51,19 +57,16 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 // function ::= 'fn' ident '(' function_args? ')' ('->' type)? '{' stmt* '}'
 fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     // consume 'fn'
-    let tok = toks.next().unwrap();
-    expect_token(&tok, &TokenKind::Fn);
+    expect_next(toks, TokenKind::Fn);
     // parse function name
     let tok = toks.next().unwrap();
-    // expect_token(&tok, &TokenKind::Ident(String::new()));
     let name = if let TokenKind::Ident(ident) = tok.kind.clone() {
         ident
     } else {
         unreachable!()
     };
     // expect '('
-    let tok = toks.next().unwrap();
-    expect_token(&tok, &TokenKind::LParen);
+    expect_next(toks, TokenKind::LParen);
     // parse optional parameters
     let mut args_vec = Vec::new();
     if let Some(peek) = toks.peek() {
@@ -72,20 +75,17 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         }
     }
     // expect ')'
-    let tok = toks.next().unwrap();
-    expect_token(&tok, &TokenKind::RParen);
+    expect_next(toks, TokenKind::RParen);
     // optional return type '-> type'
     if let Some(peek) = toks.peek() {
         if peek.kind == TokenKind::Arrow {
             toks.next();
             // parse type (only i32 supported)
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::I32);
+            expect_next(toks, TokenKind::I32);
         }
     }
     // expect '{'
-    let tok = toks.next().unwrap();
-    expect_token(&tok, &TokenKind::LBrace);
+    expect_next(toks, TokenKind::LBrace);
     // parse body statements
     let mut stmts = Vec::new();
     while let Some(peek) = toks.peek() {
@@ -95,8 +95,7 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         stmts.push(stmt(toks, vars));
     }
     // expect '}'
-    let tok = toks.next().unwrap();
-    expect_token(&tok, &TokenKind::RBrace);
+    expect_next(toks, TokenKind::RBrace);
     // fold into a single Node
     let mut iter = stmts.into_iter();
     let mut body = iter.next().unwrap();
@@ -118,8 +117,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             TokenKind::Return => {
                 toks.next();
                 let node = expr(toks, vars);
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::Semicolon);
+                expect_next(toks, TokenKind::Semicolon);
                 return Node::Return(Box::new(node));
             }
             TokenKind::LBrace => {
@@ -131,8 +129,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                     }
                     stmts.push(stmt(toks, vars));
                 }
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::RBrace);
+                expect_next(toks, TokenKind::RBrace);
                 let mut iter = stmts.into_iter();
                 let mut root = iter.next().unwrap();
                 for next in iter {
@@ -144,13 +141,11 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 // parse if statement: 'if' '(' expr ')' stmt ('else' stmt)?
                 toks.next();
                 // expect '('
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::LParen);
+                expect_next(toks, TokenKind::LParen);
                 // parse condition
                 let cond = expr(toks, vars);
                 // expect ')'
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::RParen);
+                expect_next(toks, TokenKind::RParen);
                 // parse then branch
                 let then_stmt = stmt(toks, vars);
                 // parse optional else branch
@@ -170,13 +165,11 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 // parse while statement: 'while' '(' expr ')' stmt
                 toks.next();
                 // expect '('
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::LParen);
+                expect_next(toks, TokenKind::LParen);
                 // parse condition
                 let cond = expr(toks, vars);
                 // expect ')'
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::RParen);
+                expect_next(toks, TokenKind::RParen);
                 // parse body
                 let body = stmt(toks, vars);
                 return Node::While(Box::new(cond), Box::new(body));
@@ -185,21 +178,17 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 // parse for statement: 'for' '(' expr ';' expr ';' expr ')' stmt
                 toks.next();
                 // expect '('
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::LParen);
+                expect_next(toks, TokenKind::LParen);
                 // parse init
                 let init = expr(toks, vars);
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::Semicolon);
+                expect_next(toks, TokenKind::Semicolon);
                 // parse condition
                 let cond = expr(toks, vars);
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::Semicolon);
+                expect_next(toks, TokenKind::Semicolon);
                 // parse update
                 let update = expr(toks, vars);
                 // expect ')'
-                let tok = toks.next().unwrap();
-                expect_token(&tok, &TokenKind::RParen);
+                expect_next(toks, TokenKind::RParen);
                 // parse body
                 let body = stmt(toks, vars);
                 return Node::For(
@@ -214,8 +203,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     }
     // expression statement
     let node = expr(toks, vars);
-    let tok = toks.next().unwrap();
-    expect_token(&tok, &TokenKind::Semicolon);
+    expect_next(toks, TokenKind::Semicolon);
     node
 }
 
@@ -352,9 +340,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         TokenKind::LParen => {
             // Parse sub-expression
             let node = expr(toks, vars);
-            // Expect closing ')'
-            let closing = toks.next().unwrap();
-            expect_token(&closing, &TokenKind::RParen);
+            expect_next(toks, TokenKind::RParen);
             node
         }
         TokenKind::Ident(ref ident) => {
@@ -374,8 +360,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                         Vec::new()
                     };
                     // expect closing ')'
-                    let closing = toks.next().unwrap();
-                    expect_token(&closing, &TokenKind::RParen);
+                    expect_next(toks, TokenKind::RParen);
                     return Node::Call(name, args_vec);
                 }
             }
@@ -407,8 +392,7 @@ fn function_args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Nod
             unreachable!()
         };
         // ':'
-        let tok2 = toks.next().unwrap();
-        expect_token(&tok2, &TokenKind::Colon);
+        expect_next(toks, TokenKind::Colon);
         // type (e.g., 'i32')
         let tok3 = toks.next().unwrap();
         if let TokenKind::I32 = tok3.kind {
