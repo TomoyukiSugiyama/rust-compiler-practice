@@ -743,4 +743,77 @@ mod tests {
             )
         );
     }
+
+    // Add parse error tests
+    #[test]
+    #[should_panic(expected = "expected identifier")]
+    fn test_error_fn_missing_ident() {
+        let mut iter = tokenize("fn() {}").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RParen")]
+    fn test_error_primary_missing_rparen() {
+        let mut iter = tokenize("(1+2").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        primary(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Semicolon")]
+    fn test_error_stmt_missing_semicolon() {
+        let mut iter = tokenize("42").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected LParen")]
+    fn test_error_if_missing_lparen() {
+        let mut iter = tokenize("if 1) 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RParen")]
+    fn test_error_if_missing_rparen() {
+        let mut iter = tokenize("if (1 2 3;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Semicolon")]
+    fn test_error_for_missing_semicolon1() {
+        let mut iter = tokenize("for (1 2;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Semicolon")]
+    fn test_error_for_missing_semicolon2() {
+        let mut iter = tokenize("for (1;2 3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Colon")]
+    fn test_error_fn_args_missing_colon() {
+        let mut iter = tokenize("fn foo(a i32) {}").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected I32")]
+    fn test_error_fn_args_missing_type() {
+        let mut iter = tokenize("fn foo(a:) {}").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
 }
