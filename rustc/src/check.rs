@@ -17,13 +17,6 @@ pub fn error_at(exp: &str, pos: usize, msg: &str) -> ! {
     panic!("{}", msg);
 }
 
-pub fn expect_number(cur: &Token, exp: &str) -> u64 {
-    match &cur.kind {
-        TokenKind::Number(n) => *n,
-        _ => error_at(exp, cur.pos, "数ではありません"),
-    }
-}
-
 /// Panic when an unexpected token is encountered in parsing
 pub fn expect_token(cur: &Token, expected_kind: &TokenKind) {
     let exp = CURRENT_EXP.with(|c| c.borrow().clone());
@@ -36,13 +29,6 @@ pub fn expect_token(cur: &Token, expected_kind: &TokenKind) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    #[should_panic(expected = "数ではありません")]
-    fn test_expect_number_panic() {
-        let head = tokenize("1+2");
-        let op_tok = head.next.as_ref().unwrap().next.as_ref().unwrap();
-        expect_number(op_tok, "1+2");
-    }
 
     #[test]
     fn test_expect_token_ok() {
