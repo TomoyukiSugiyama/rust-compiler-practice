@@ -29,6 +29,7 @@ pub enum TokenKind {
     LBrace,
     RBrace,
     I32,
+    Arrow,
 }
 
 #[derive(Debug)]
@@ -107,57 +108,43 @@ fn lookup_keyword(word: &str) -> Option<TokenKind> {
     None
 }
 
-/// Reads an operator or delimiter and returns the TokenKind, consuming chars as needed.
+/// Slice of operator lexemes mapped to their TokenKind, sorted by descending length.
+const OPERATORS: &[(&str, TokenKind)] = &[
+    ("==", TokenKind::EqEq),
+    ("!=", TokenKind::Ne),
+    ("<=", TokenKind::Le),
+    (">=", TokenKind::Ge),
+    ("->", TokenKind::Arrow),
+    ("<", TokenKind::Lt),
+    (">", TokenKind::Gt),
+    ("=", TokenKind::Assign),
+    ("+", TokenKind::Plus),
+    ("-", TokenKind::Minus),
+    ("*", TokenKind::Star),
+    ("/", TokenKind::Slash),
+    (";", TokenKind::Semicolon),
+    (",", TokenKind::Comma),
+    (":", TokenKind::Colon),
+    ("(", TokenKind::LParen),
+    (")", TokenKind::RParen),
+    ("{", TokenKind::LBrace),
+    ("}", TokenKind::RBrace),
+];
+
+/// Reads an operator or delimiter and returns the TokenKind by matching against `OPERATORS`.
 fn read_operator(chars: &mut Peekable<CharIndices>, exp: &str, pos: usize) -> TokenKind {
-    let kind = match chars.next().unwrap().1 {
-        '=' => {
-            if let Some(&(_, '=')) = chars.peek() {
+    let rest = &exp[pos..];
+    for &(s, ref kind) in OPERATORS {
+        if rest.starts_with(s) {
+            // consume the characters of s
+            for _ in 0..s.chars().count() {
                 chars.next();
-                TokenKind::EqEq
-            } else {
-                TokenKind::Assign
             }
+            return kind.clone();
         }
-        '!' => {
-            if let Some(&(_, '=')) = chars.peek() {
-                chars.next();
-                TokenKind::Ne
-            } else {
-                error_at(exp, pos, "無効な文字です");
-            }
-        }
-        '<' => {
-            if let Some(&(_, '=')) = chars.peek() {
-                chars.next();
-                TokenKind::Le
-            } else {
-                TokenKind::Lt
-            }
-        }
-        '>' => {
-            if let Some(&(_, '=')) = chars.peek() {
-                chars.next();
-                TokenKind::Ge
-            } else {
-                TokenKind::Gt
-            }
-        }
-        '+' => TokenKind::Plus,
-        '-' => TokenKind::Minus,
-        '*' => TokenKind::Star,
-        '/' => TokenKind::Slash,
-        ';' => TokenKind::Semicolon,
-        ',' => TokenKind::Comma,
-        ':' => TokenKind::Colon,
-        '(' => TokenKind::LParen,
-        ')' => TokenKind::RParen,
-        '{' => TokenKind::LBrace,
-        '}' => TokenKind::RBrace,
-        _ => {
-            error_at(exp, pos, "無効な文字です");
-        }
-    };
-    kind
+    }
+    // no operator matched; report error
+    error_at(exp, pos, "無効な文字です");
 }
 
 /// Tokenizes an arithmetic expression into a linked list of tokens.
@@ -315,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_tokenize_all_operators() {
-        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for fn";
+        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for fn ->";
         let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
         assert_eq!(
             kinds,
@@ -342,6 +329,7 @@ mod tests {
                 TokenKind::While,
                 TokenKind::For,
                 TokenKind::Fn,
+                TokenKind::Arrow,
                 TokenKind::Eof,
             ]
         );

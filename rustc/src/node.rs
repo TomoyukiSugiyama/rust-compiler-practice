@@ -76,11 +76,8 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     expect_token(&tok, &TokenKind::RParen);
     // optional return type '-> type'
     if let Some(peek) = toks.peek() {
-        if peek.kind == TokenKind::Minus {
-            // consume '->'
-            toks.next(); // Minus
-            let tok = toks.next().unwrap();
-            expect_token(&tok, &TokenKind::Gt);
+        if peek.kind == TokenKind::Arrow {
+            toks.next();
             // parse type (only i32 supported)
             let tok = toks.next().unwrap();
             expect_token(&tok, &TokenKind::I32);
