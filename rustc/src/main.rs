@@ -11,9 +11,8 @@ fn main() {
 
     // variable context for parsing
     let mut vars = Variable::new("".to_string(), 0, None);
-
+    // parse the program
     let node = program(&mut iter, &mut vars);
-    // let node = expr(&mut iter);
     // Generate the program
     generate(&node);
 }
