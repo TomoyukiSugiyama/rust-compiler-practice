@@ -26,6 +26,12 @@ pub fn expect_token(cur: &Token, expected_kind: &TokenKind) {
     error_at(&exp, cur.pos, &format!("expected {:?}", expected_kind));
 }
 
+/// Report a parsing error at the given token with a custom message and print location.
+pub fn error_tok(cur: &Token, msg: &str) -> ! {
+    let exp = CURRENT_EXP.with(|c| c.borrow().clone());
+    error_at(&exp, cur.pos, msg);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

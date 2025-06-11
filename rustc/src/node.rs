@@ -1,4 +1,4 @@
-use crate::check::expect_token;
+use crate::check::{error_tok, expect_token};
 use crate::token::*;
 use crate::variable::Variable;
 use std::iter::Peekable;
@@ -63,7 +63,7 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let name = if let TokenKind::Ident(ident) = tok.kind.clone() {
         ident
     } else {
-        unreachable!()
+        error_tok(&tok, "expected identifier");
     };
     // expect '('
     expect_next(toks, TokenKind::LParen);
@@ -375,7 +375,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             };
             Node::Var(offset)
         }
-        _ => unreachable!("unexpected token: {:?}", tok.kind),
+        _ => error_tok(&tok, &format!("unexpected token: {:?}", tok.kind)),
     }
 }
 
@@ -389,17 +389,12 @@ fn function_args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Nod
         let name = if let TokenKind::Ident(ident) = &tok.kind {
             ident.clone()
         } else {
-            unreachable!()
+            error_tok(&tok, "expected identifier");
         };
         // ':'
         expect_next(toks, TokenKind::Colon);
         // type (e.g., 'i32')
-        let tok3 = toks.next().unwrap();
-        if let TokenKind::I32 = tok3.kind {
-            // ignore actual type
-        } else {
-            unreachable!()
-        }
+        expect_next(toks, TokenKind::I32);
         // assign new offset for this parameter
         let off = if let Some(off) = vars.find(&name) {
             off
