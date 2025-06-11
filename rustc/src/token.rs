@@ -217,7 +217,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tokenize() {
+    fn test_tokenize_empty_or_whitespace_only() {
+        let kinds: Vec<TokenKind> = tokenize("   ").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Eof]);
+    }
+
+    #[test]
+    #[should_panic(expected = "無効な文字です")]
+    fn test_tokenize_panic_on_invalid_char() {
+        let _ = tokenize("?");
+    }
+
+    #[test]
+    fn test_tokenize_numbers_and_arithmetic() {
         let head = tokenize("12 + 34 -5");
         let mut t = &head;
         let mut kinds: Vec<&TokenKind> = Vec::new();
@@ -258,9 +270,81 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "無効な文字です")]
-    fn test_tokenize_panic_on_invalid_char() {
-        let _ = tokenize("?");
+    fn test_tokenize_ident() {
+        let kinds: Vec<TokenKind> = tokenize("foo bar")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Ident("foo".to_string()),
+                TokenKind::Ident("bar".to_string()),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_alphanumeric_ident() {
+        let kinds: Vec<TokenKind> = tokenize("foo123 bar456")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Ident("foo123".into()),
+                TokenKind::Ident("bar456".into()),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_i32_keyword_and_ident_mix() {
+        let kinds: Vec<TokenKind> = tokenize("i32 i32foo fooi32")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::I32,
+                TokenKind::Ident("i32foo".into()),
+                TokenKind::Ident("fooi32".into()),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_fn_keyword() {
+        let kinds: Vec<TokenKind> = tokenize("fn").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Fn, TokenKind::Eof]);
+    }
+
+    #[test]
+    fn test_tokenize_fn_declaration() {
+        let kinds: Vec<TokenKind> = tokenize("fn foo() { return 42; }")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Fn,
+                TokenKind::Ident("foo".to_string()),
+                TokenKind::LParen,
+                TokenKind::RParen,
+                TokenKind::LBrace,
+                TokenKind::Return,
+                TokenKind::Number(42),
+                TokenKind::Semicolon,
+                TokenKind::RBrace,
+                TokenKind::Eof,
+            ]
+        );
     }
 
     #[test]
@@ -285,8 +369,8 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_ident() {
-        let kinds: Vec<TokenKind> = tokenize("foo bar")
+    fn test_tokenize_call_tokens() {
+        let kinds: Vec<TokenKind> = tokenize("foo(1,2)")
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -294,10 +378,26 @@ mod tests {
             kinds,
             vec![
                 TokenKind::Ident("foo".to_string()),
-                TokenKind::Ident("bar".to_string()),
+                TokenKind::LParen,
+                TokenKind::Number(1),
+                TokenKind::Comma,
+                TokenKind::Number(2),
+                TokenKind::RParen,
                 TokenKind::Eof,
             ]
         );
+    }
+
+    #[test]
+    fn test_tokenize_comma() {
+        let kinds: Vec<TokenKind> = tokenize(",").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Comma, TokenKind::Eof]);
+    }
+
+    #[test]
+    fn test_tokenize_colon() {
+        let kinds: Vec<TokenKind> = tokenize(":").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Colon, TokenKind::Eof]);
     }
 
     #[test]
@@ -336,61 +436,6 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_comma() {
-        let kinds: Vec<TokenKind> = tokenize(",").into_iter().map(|tok| tok.kind).collect();
-        assert_eq!(kinds, vec![TokenKind::Comma, TokenKind::Eof]);
-    }
-
-    #[test]
-    fn test_tokenize_call_tokens() {
-        let kinds: Vec<TokenKind> = tokenize("foo(1,2)")
-            .into_iter()
-            .map(|tok| tok.kind)
-            .collect();
-        assert_eq!(
-            kinds,
-            vec![
-                TokenKind::Ident("foo".to_string()),
-                TokenKind::LParen,
-                TokenKind::Number(1),
-                TokenKind::Comma,
-                TokenKind::Number(2),
-                TokenKind::RParen,
-                TokenKind::Eof,
-            ]
-        );
-    }
-
-    #[test]
-    fn test_tokenize_fn_keyword() {
-        let kinds: Vec<TokenKind> = tokenize("fn").into_iter().map(|tok| tok.kind).collect();
-        assert_eq!(kinds, vec![TokenKind::Fn, TokenKind::Eof,]);
-    }
-
-    #[test]
-    fn test_tokenize_fn_declaration() {
-        let kinds: Vec<TokenKind> = tokenize("fn foo() { return 42; }")
-            .into_iter()
-            .map(|tok| tok.kind)
-            .collect();
-        assert_eq!(
-            kinds,
-            vec![
-                TokenKind::Fn,
-                TokenKind::Ident("foo".to_string()),
-                TokenKind::LParen,
-                TokenKind::RParen,
-                TokenKind::LBrace,
-                TokenKind::Return,
-                TokenKind::Number(42),
-                TokenKind::Semicolon,
-                TokenKind::RBrace,
-                TokenKind::Eof,
-            ]
-        );
-    }
-
-    #[test]
     fn test_tokenize_arrow() {
         let kinds: Vec<TokenKind> = tokenize("->").into_iter().map(|tok| tok.kind).collect();
         assert_eq!(kinds, vec![TokenKind::Arrow, TokenKind::Eof]);
@@ -408,51 +453,6 @@ mod tests {
                 TokenKind::Ident("foo".to_string()),
                 TokenKind::Arrow,
                 TokenKind::Ident("bar".to_string()),
-                TokenKind::Eof,
-            ]
-        );
-    }
-
-    #[test]
-    fn test_tokenize_colon() {
-        let kinds: Vec<TokenKind> = tokenize(":").into_iter().map(|tok| tok.kind).collect();
-        assert_eq!(kinds, vec![TokenKind::Colon, TokenKind::Eof]);
-    }
-
-    #[test]
-    fn test_tokenize_i32_keyword_and_ident_mix() {
-        let kinds: Vec<TokenKind> = tokenize("i32 i32foo fooi32")
-            .into_iter()
-            .map(|tok| tok.kind)
-            .collect();
-        assert_eq!(
-            kinds,
-            vec![
-                TokenKind::I32,
-                TokenKind::Ident("i32foo".into()),
-                TokenKind::Ident("fooi32".into()),
-                TokenKind::Eof,
-            ]
-        );
-    }
-
-    #[test]
-    fn test_tokenize_empty_or_whitespace_only() {
-        let kinds: Vec<TokenKind> = tokenize("   ").into_iter().map(|tok| tok.kind).collect();
-        assert_eq!(kinds, vec![TokenKind::Eof]);
-    }
-
-    #[test]
-    fn test_tokenize_alphanumeric_ident() {
-        let kinds: Vec<TokenKind> = tokenize("foo123 bar456")
-            .into_iter()
-            .map(|tok| tok.kind)
-            .collect();
-        assert_eq!(
-            kinds,
-            vec![
-                TokenKind::Ident("foo123".into()),
-                TokenKind::Ident("bar456".into()),
                 TokenKind::Eof,
             ]
         );
