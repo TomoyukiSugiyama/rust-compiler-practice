@@ -86,6 +86,27 @@ fn read_ident(chars: &mut Peekable<CharIndices>) -> String {
     word
 }
 
+/// Table of keyword strings to token kinds.
+const KEYWORDS: &[(&str, TokenKind)] = &[
+    ("return", TokenKind::Return),
+    ("if", TokenKind::If),
+    ("else", TokenKind::Else),
+    ("while", TokenKind::While),
+    ("for", TokenKind::For),
+    ("fn", TokenKind::Fn),
+    ("i32", TokenKind::I32),
+];
+
+/// Looks up a word in the keyword table and returns the corresponding TokenKind.
+fn lookup_keyword(word: &str) -> Option<TokenKind> {
+    for &(kw, ref kind) in KEYWORDS {
+        if kw == word {
+            return Some(kind.clone());
+        }
+    }
+    None
+}
+
 /// Tokenizes an arithmetic expression into a linked list of tokens.
 /// Supports positive integers, identifiers, operators, and delimiters.
 /// Returns the head `Token`, whose chained `next` pointers end with an `Eof` token.
@@ -110,16 +131,7 @@ pub fn tokenize(exp: &str) -> Token {
         } else if c.is_ascii_alphabetic() {
             let start = i;
             let word = read_ident(&mut chars);
-            let kind = match word.as_str() {
-                "return" => TokenKind::Return,
-                "if" => TokenKind::If,
-                "else" => TokenKind::Else,
-                "while" => TokenKind::While,
-                "for" => TokenKind::For,
-                "fn" => TokenKind::Fn,
-                "i32" => TokenKind::I32,
-                _ => TokenKind::Ident(word),
-            };
+            let kind = lookup_keyword(&word).unwrap_or(TokenKind::Ident(word));
             tail = tail.push(kind, start);
         } else {
             // Operators and delimiters
