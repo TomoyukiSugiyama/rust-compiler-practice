@@ -50,4 +50,12 @@ mod tests {
         let tok = head.next.as_ref().unwrap().next.as_ref().unwrap();
         expect_token(&tok, &TokenKind::Semicolon);
     }
+
+    #[test]
+    #[should_panic(expected = "test error")]
+    fn test_error_tok() {
+        let head = tokenize("x");
+        let tok = head.next.as_ref().unwrap();
+        error_tok(&tok, "test error");
+    }
 }
