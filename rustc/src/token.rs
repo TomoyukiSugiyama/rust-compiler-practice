@@ -401,6 +401,29 @@ mod tests {
     }
 
     #[test]
+    fn test_tokenize_arrow() {
+        let kinds: Vec<TokenKind> = tokenize("->").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Arrow, TokenKind::Eof]);
+    }
+
+    #[test]
+    fn test_tokenize_arrow_with_ident() {
+        let kinds: Vec<TokenKind> = tokenize("foo->bar")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Ident("foo".to_string()),
+                TokenKind::Arrow,
+                TokenKind::Ident("bar".to_string()),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
     fn test_tokenize_all_operators() {
         let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for fn ->";
         let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
@@ -435,26 +458,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_tokenize_arrow() {
-        let kinds: Vec<TokenKind> = tokenize("->").into_iter().map(|tok| tok.kind).collect();
-        assert_eq!(kinds, vec![TokenKind::Arrow, TokenKind::Eof]);
-    }
-
-    #[test]
-    fn test_tokenize_arrow_with_ident() {
-        let kinds: Vec<TokenKind> = tokenize("foo->bar")
-            .into_iter()
-            .map(|tok| tok.kind)
-            .collect();
-        assert_eq!(
-            kinds,
-            vec![
-                TokenKind::Ident("foo".to_string()),
-                TokenKind::Arrow,
-                TokenKind::Ident("bar".to_string()),
-                TokenKind::Eof,
-            ]
-        );
-    }
 }
