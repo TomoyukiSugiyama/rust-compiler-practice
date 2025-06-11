@@ -412,4 +412,49 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn test_tokenize_colon() {
+        let kinds: Vec<TokenKind> = tokenize(":").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Colon, TokenKind::Eof]);
+    }
+
+    #[test]
+    fn test_tokenize_i32_keyword_and_ident_mix() {
+        let kinds: Vec<TokenKind> = tokenize("i32 i32foo fooi32")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::I32,
+                TokenKind::Ident("i32foo".into()),
+                TokenKind::Ident("fooi32".into()),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_empty_or_whitespace_only() {
+        let kinds: Vec<TokenKind> = tokenize("   ").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Eof]);
+    }
+
+    #[test]
+    fn test_tokenize_alphanumeric_ident() {
+        let kinds: Vec<TokenKind> = tokenize("foo123 bar456")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Ident("foo123".into()),
+                TokenKind::Ident("bar456".into()),
+                TokenKind::Eof,
+            ]
+        );
+    }
 }
