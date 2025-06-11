@@ -494,6 +494,326 @@ fn args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Node> {
 mod tests {
     use super::*;
 
+    //=== Function parsing (happy path) ===
+    #[test]
+    fn test_program_single_function() {
+        let mut iter = tokenize("fn main() { 42; }").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Function("main".to_string(), vec![], Box::new(Node::Num(42)))
+        );
+    }
+
+    #[test]
+    fn test_program_two_functions() {
+        let mut iter = tokenize("fn main() { 1; } fn foo() { 2; }")
+            .into_iter()
+            .peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Seq(
+                Box::new(Node::Function(
+                    "main".to_string(),
+                    vec![],
+                    Box::new(Node::Num(1))
+                )),
+                Box::new(Node::Function(
+                    "foo".to_string(),
+                    vec![],
+                    Box::new(Node::Num(2))
+                ))
+            )
+        );
+    }
+
+    #[test]
+    fn test_program_return_in_function() {
+        let mut iter = tokenize("fn main() { return 3; }").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Function(
+                "main".to_string(),
+                vec![],
+                Box::new(Node::Return(Box::new(Node::Num(3))))
+            )
+        );
+    }
+
+    #[test]
+    fn test_program_two_functions_with_return() {
+        let mut iter = tokenize("fn mainA() { 1; } fn mainB() { return 2; }")
+            .into_iter()
+            .peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Seq(
+                Box::new(Node::Function(
+                    "mainA".to_string(),
+                    vec![],
+                    Box::new(Node::Num(1))
+                )),
+                Box::new(Node::Function(
+                    "mainB".to_string(),
+                    vec![],
+                    Box::new(Node::Return(Box::new(Node::Num(2))))
+                ))
+            )
+        );
+    }
+
+    //=== Function parsing error tests ===
+    #[test]
+    #[should_panic(expected = "expected identifier")]
+    fn test_error_fn_missing_ident() {
+        let mut iter = tokenize("fn() {}").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected LParen")]
+    fn test_error_fn_missing_lparen() {
+        let mut iter = tokenize("fn main) { }").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RParen")]
+    fn test_error_fn_missing_rparen() {
+        let mut iter = tokenize("fn main( {}").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected LBrace")]
+    fn test_error_fn_missing_lbrace() {
+        let mut iter = tokenize("fn main() )").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RBrace")]
+    fn test_error_fn_missing_rbrace() {
+        let mut iter = tokenize("fn main() { 1;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Colon")]
+    fn test_error_fn_args_missing_colon() {
+        let mut iter = tokenize("fn foo(a i32) {}").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected I32")]
+    fn test_error_fn_args_missing_type() {
+        let mut iter = tokenize("fn foo(a:)").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        program(&mut iter, &mut vars);
+    }
+
+    //=== If parsing (happy path) ===
+    #[test]
+    fn test_stmt_if() {
+        let mut iter = tokenize("if (1) 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = stmt(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::If(Box::new(Node::Num(1)), Box::new(Node::Num(2)), None)
+        );
+    }
+
+    #[test]
+    fn test_stmt_if_else() {
+        let mut iter = tokenize("if (1) 2; else 3;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = stmt(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::If(
+                Box::new(Node::Num(1)),
+                Box::new(Node::Num(2)),
+                Some(Box::new(Node::Num(3)))
+            )
+        );
+    }
+
+    //=== If parsing error tests ===
+    #[test]
+    #[should_panic(expected = "expected LParen")]
+    fn test_error_if_missing_lparen() {
+        let mut iter = tokenize("if 1) 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RParen")]
+    fn test_error_if_missing_rparen() {
+        let mut iter = tokenize("if (1 2 3;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_if_missing_condition() {
+        let mut iter = tokenize("if () 1;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected statement")]
+    fn test_error_if_missing_then_branch() {
+        let mut iter = tokenize("if (1)").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    //=== While parsing (happy path) ===
+    #[test]
+    fn test_stmt_while() {
+        let mut iter = tokenize("while (1) 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = stmt(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::While(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+        );
+    }
+
+    //=== While parsing error tests ===
+    #[test]
+    #[should_panic(expected = "expected LParen")]
+    fn test_error_while_missing_lparen() {
+        let mut iter = tokenize("while 1) 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RParen")]
+    fn test_error_while_missing_rparen() {
+        let mut iter = tokenize("while (1 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_while_missing_condition() {
+        let mut iter = tokenize("while () 2;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected statement")]
+    fn test_error_while_missing_body() {
+        let mut iter = tokenize("while (1)").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    //=== For parsing (happy path) ===
+    #[test]
+    fn test_stmt_for() {
+        let mut iter = tokenize("for (1;2;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = stmt(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::For(
+                Box::new(Node::Num(1)),
+                Box::new(Node::Num(2)),
+                Box::new(Node::Num(3)),
+                Box::new(Node::Num(4)),
+            )
+        );
+    }
+
+    //=== For parsing error tests ===
+    #[test]
+    #[should_panic(expected = "expected LParen")]
+    fn test_error_for_missing_lparen() {
+        let mut iter = tokenize("for 1;2;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Semicolon")]
+    fn test_error_for_missing_semicolon1() {
+        let mut iter = tokenize("for (1 2;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Semicolon")]
+    fn test_error_for_missing_semicolon2() {
+        let mut iter = tokenize("for (1;2 3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_for_missing_init() {
+        let mut iter = tokenize("for (;2;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_for_missing_cond() {
+        let mut iter = tokenize("for (1;;3) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected expression")]
+    fn test_error_for_missing_update() {
+        let mut iter = tokenize("for (1;2;) 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected RParen")]
+    fn test_error_for_missing_rparen() {
+        let mut iter = tokenize("for (1;2;3 4;").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected statement")]
+    fn test_error_for_missing_body() {
+        let mut iter = tokenize("for (1;2;3)").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        stmt(&mut iter, &mut vars);
+    }
+
+    //=== Miscellaneous parsing tests ===
     #[test]
     fn test_primary() {
         let mut iter = tokenize("42").into_iter().peekable();
@@ -636,172 +956,37 @@ mod tests {
         );
     }
 
-    // program function tests
-    #[test]
-    fn test_program_single_function() {
-        let mut iter = tokenize("fn main() { 42; }").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
-        assert_eq!(
-            node,
-            Node::Function("main".to_string(), vec![], Box::new(Node::Num(42)))
-        );
-    }
-
-    #[test]
-    fn test_program_two_functions() {
-        let mut iter = tokenize("fn main() { 1; } fn foo() { 2; }")
-            .into_iter()
-            .peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
-        assert_eq!(
-            node,
-            Node::Seq(
-                Box::new(Node::Function(
-                    "main".to_string(),
-                    vec![],
-                    Box::new(Node::Num(1))
-                )),
-                Box::new(Node::Function(
-                    "foo".to_string(),
-                    vec![],
-                    Box::new(Node::Num(2))
-                ))
-            )
-        );
-    }
-
-    #[test]
-    fn test_program_return_in_function() {
-        let mut iter = tokenize("fn main() { return 3; }").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
-        assert_eq!(
-            node,
-            Node::Function(
-                "main".to_string(),
-                vec![],
-                Box::new(Node::Return(Box::new(Node::Num(3))))
-            )
-        );
-    }
-
-    #[test]
-    fn test_program_two_functions_with_return() {
-        let mut iter = tokenize("fn mainA() { 1; } fn mainB() { return 2; }")
-            .into_iter()
-            .peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
-        assert_eq!(
-            node,
-            Node::Seq(
-                Box::new(Node::Function(
-                    "mainA".to_string(),
-                    vec![],
-                    Box::new(Node::Num(1))
-                )),
-                Box::new(Node::Function(
-                    "mainB".to_string(),
-                    vec![],
-                    Box::new(Node::Return(Box::new(Node::Num(2))))
-                ))
-            )
-        );
-    }
-
-    // Add tests for function call parsing
     #[test]
     fn test_call_no_args() {
         let mut iter = tokenize("foo()").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = primary(&mut iter, &mut vars);
-        assert_eq!(node, Node::Call("foo".to_string(), vec![]));
+        assert_eq!(
+            primary(&mut iter, &mut vars),
+            Node::Call("foo".to_string(), vec![])
+        );
     }
 
     #[test]
     fn test_call_one_arg() {
         let mut iter = tokenize("foo(42)").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = primary(&mut iter, &mut vars);
-        assert_eq!(node, Node::Call("foo".to_string(), vec![Node::Num(42)]));
+        assert_eq!(
+            primary(&mut iter, &mut vars),
+            Node::Call("foo".to_string(), vec![Node::Num(42)])
+        );
     }
 
     #[test]
     fn test_call_multiple_args() {
         let mut iter = tokenize("foo(1,2)").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = primary(&mut iter, &mut vars);
         assert_eq!(
-            node,
+            primary(&mut iter, &mut vars),
             Node::Call("foo".to_string(), vec![Node::Num(1), Node::Num(2)])
         );
     }
 
-    // Add tests for control flow statements
-    #[test]
-    fn test_stmt_if() {
-        let mut iter = tokenize("if (1) 2;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = stmt(&mut iter, &mut vars);
-        assert_eq!(
-            node,
-            Node::If(Box::new(Node::Num(1)), Box::new(Node::Num(2)), None)
-        );
-    }
-
-    #[test]
-    fn test_stmt_if_else() {
-        let mut iter = tokenize("if (1) 2; else 3;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = stmt(&mut iter, &mut vars);
-        assert_eq!(
-            node,
-            Node::If(
-                Box::new(Node::Num(1)),
-                Box::new(Node::Num(2)),
-                Some(Box::new(Node::Num(3))),
-            )
-        );
-    }
-
-    #[test]
-    fn test_stmt_while() {
-        let mut iter = tokenize("while (1) 2;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = stmt(&mut iter, &mut vars);
-        assert_eq!(
-            node,
-            Node::While(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
-        );
-    }
-
-    #[test]
-    fn test_stmt_for() {
-        let mut iter = tokenize("for (1;2;3) 4;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let node = stmt(&mut iter, &mut vars);
-        assert_eq!(
-            node,
-            Node::For(
-                Box::new(Node::Num(1)),
-                Box::new(Node::Num(2)),
-                Box::new(Node::Num(3)),
-                Box::new(Node::Num(4)),
-            )
-        );
-    }
-
-    // Add parse error tests
-    #[test]
-    #[should_panic(expected = "expected identifier")]
-    fn test_error_fn_missing_ident() {
-        let mut iter = tokenize("fn() {}").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
-    }
-
+    //=== Miscellaneous error tests ===
     #[test]
     #[should_panic(expected = "expected RParen")]
     fn test_error_primary_missing_rparen() {
@@ -814,185 +999,6 @@ mod tests {
     #[should_panic(expected = "expected Semicolon")]
     fn test_error_stmt_missing_semicolon() {
         let mut iter = tokenize("42").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected LParen")]
-    fn test_error_if_missing_lparen() {
-        let mut iter = tokenize("if 1) 2;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected RParen")]
-    fn test_error_if_missing_rparen() {
-        let mut iter = tokenize("if (1 2 3;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected Semicolon")]
-    fn test_error_for_missing_semicolon1() {
-        let mut iter = tokenize("for (1 2;3) 4;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected Semicolon")]
-    fn test_error_for_missing_semicolon2() {
-        let mut iter = tokenize("for (1;2 3) 4;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected Colon")]
-    fn test_error_fn_args_missing_colon() {
-        let mut iter = tokenize("fn foo(a i32) {}").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected I32")]
-    fn test_error_fn_args_missing_type() {
-        let mut iter = tokenize("fn foo(a:) {}").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected LParen")]
-    fn test_error_fn_missing_lparen() {
-        let mut iter = tokenize("fn main) { }").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected RParen")]
-    fn test_error_fn_missing_rparen() {
-        let mut iter = tokenize("fn main( {}").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected LBrace")]
-    fn test_error_fn_missing_lbrace() {
-        let mut iter = tokenize("fn main() )").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected RBrace")]
-    fn test_error_fn_missing_rbrace() {
-        let mut iter = tokenize("fn main() { 1;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
-    }
-
-    // If statement error tests
-    #[test]
-    #[should_panic(expected = "expected expression")]
-    fn test_error_if_missing_condition() {
-        let mut iter = tokenize("if () 1;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected statement")]
-    fn test_error_if_missing_then_branch() {
-        let mut iter = tokenize("if (1)").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    // While statement error tests
-    #[test]
-    #[should_panic(expected = "expected LParen")]
-    fn test_error_while_missing_lparen() {
-        let mut iter = tokenize("while 1) 2;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected RParen")]
-    fn test_error_while_missing_rparen() {
-        let mut iter = tokenize("while (1 2;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected expression")]
-    fn test_error_while_missing_condition() {
-        let mut iter = tokenize("while () 2;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected statement")]
-    fn test_error_while_missing_body() {
-        let mut iter = tokenize("while (1)").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    // For statement error tests
-    #[test]
-    #[should_panic(expected = "expected LParen")]
-    fn test_error_for_missing_lparen() {
-        let mut iter = tokenize("for 1;2;3) 4;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected expression")]
-    fn test_error_for_missing_init() {
-        let mut iter = tokenize("for (;2;3) 4;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected expression")]
-    fn test_error_for_missing_cond() {
-        let mut iter = tokenize("for (1;;3) 4;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected expression")]
-    fn test_error_for_missing_update() {
-        let mut iter = tokenize("for (1;2;) 4;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected RParen")]
-    fn test_error_for_missing_rparen() {
-        let mut iter = tokenize("for (1;2;3 4;").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
-    }
-
-    #[test]
-    #[should_panic(expected = "expected statement")]
-    fn test_error_for_missing_body() {
-        let mut iter = tokenize("for (1;2;3)").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         stmt(&mut iter, &mut vars);
     }
