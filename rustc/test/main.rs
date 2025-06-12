@@ -46,11 +46,16 @@ fn main() {
     });
 
     for &(expected, input) in tests {
-        let asm_path = "bin/test-arm64.s";
+        let test_name = std::path::Path::new(input)
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .unwrap();
+        let asm_path = format!("bin/arm64-{}.s", test_name);
         let bin_path = "bin/test";
 
         // Generate assembly
-        let asm_file = File::create(asm_path).unwrap_or_else(|e| {
+        let asm_file = File::create(&asm_path).unwrap_or_else(|e| {
             eprintln!("failed to create asm file {}: {}", asm_path, e);
             exit(1);
         });
@@ -77,7 +82,7 @@ fn main() {
             .arg("arm64")
             .arg("-x")
             .arg("assembler")
-            .arg(asm_path)
+            .arg(&asm_path)
             .arg("-o")
             .arg(bin_path)
             .status()
