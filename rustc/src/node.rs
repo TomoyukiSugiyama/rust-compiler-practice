@@ -287,7 +287,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 }
 
 // expr ::= assign
-pub fn expr(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+fn expr(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     assign(toks, vars)
 }
 
