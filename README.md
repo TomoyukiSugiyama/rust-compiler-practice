@@ -1,44 +1,77 @@
-# Setup
+## Setup
 
 ```bash
 $ mkdir -p rustc/bin
 ```
 
-# Test
+## Tests
+
+### Unit Tests
 
 ```bash
-# unit test
-$ cd rustc
-$ cargo test
-# integration test
-$ cd rustc
-$ ./test/test.sh
+cd rustc
+cargo test
+```
+
+### Integration Tests
+
+```bash
+cd rustc
+% ./test/test.sh 
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.00s
-     Running `target/debug/rustc 'a=0; b=1; for ( i=0; i<3; i=i+1 ) { a=a+1; b=b+1; } return b;'`
-a=0; b=1; for ( i=0; i<3; i=i+1 ) { a=a+1; b=b+1; } return b; => 4
+     Running `target/debug/rustc ./test/assets/number.rs`
+./test/assets/number.rs => 12
+
+  :
+  :
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.00s
+     Running `target/debug/rustc ./test/assets/local-var.rs`
+./test/assets/local-var.rs => 10
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.00s
+     Running `target/debug/rustc ./test/assets/comments.rs`
+./test/assets/comments.rs => 10
 OK
-
 ```
 
-# Function call test
+## Function Call Test
 
-## 1. Generate `test-debug.s`
+This test verifies that our compiler correctly handles function calls by compiling a recursive Fibonacci function into assembly and running it in an integration test.
 
+### 1. Create the Fibonacci source
+
+Create `test/assets/fibonacci-debug.rs` with:
+```rust
+fn fib(n: i32) -> i32 {
+    if n <= 1 {
+        return n;
+    }
+    fib(n - 1) + fib(n - 2)
+}
+
+fn test() {
+    let res = fib(10);
+    debug1(res);
+}
+```
+
+### 2. Generate assembly
+
+From the `rustc` directory, run:
 ```bash
-% cd rustc
-# debug function call
-% cargo run -- 'fn test(){debug2(1, 2);}' > bin/test-debug.s
-# debug fibonacci
-$ fib=$(cat test/assets/fibonacci-debug.rs);cargo run -- $fib > ./bin/test-debug.s
+cargo run -- ./test/assets/fibonacci-debug.rs > ./bin/test-debug.s
 ```
 
+This produces `bin/test-debug.s` containing x86_64 assembly for the test.
 
-## 2. Build and run the integration test
+### 3. Run the integration test
 
-```sh
-% cd rustc
-% cargo run --manifest-path test/function-call/Cargo.toml
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
-     Running `rustc/test/function-call/target/debug/foo`
-foo
+Navigate to the function-call test project and run:
+```bash
+cd test/function-call
+cargo run
+```
+
+You should see:
+```
+x = 55
 ```
