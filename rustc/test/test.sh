@@ -80,5 +80,8 @@ assert 5 'fn foo(){a=3;return a;} fn main(){b=foo(); return b+2;}'
 # fibonacci
 fib=$(cat ./test/assets/fibonacci.rs)
 assert 55 "$fib"
+# dereference, address-of
+assert 3 'fn main(){a=3;b=&a; return *b;}'
+
 
 echo "OK"

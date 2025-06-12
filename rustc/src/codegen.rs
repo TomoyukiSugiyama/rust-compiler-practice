@@ -166,7 +166,6 @@ fn emit_call(name: &String, args: &[Node]) {
 }
 
 fn gen_prologue(name: &String) {
-    
     println!(".globl _{}", name);
     println!("_{}:", name);
     // save old frame pointer and set up new
@@ -197,6 +196,29 @@ fn emit_function(name: &String, args: &Vec<Node>, body: &Box<Node>) {
     gen_epilogue();
 }
 
+// helper to emit code for dereference
+fn emit_deref(node: &Node) {
+    gen_node(node);
+    println!("    ldr x0, [sp], #16");
+    println!("    ldr x0, [x0]");
+    println!("    str x0, [sp, #-16]!");
+}
+
+// helper to emit code for address-of
+fn emit_addr(node: &Node) {
+    match node {
+        Node::Var(off) => {
+            println!("    mov x0, x29");
+            println!("    sub x0, x0, #{}", off);
+            println!("    str x0, [sp, #-16]!");
+        }
+        Node::Deref(inner) => {
+            gen_node(inner);
+        }
+        _ => panic!("address-of not supported for {:?}", node),
+    }
+}
+
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
@@ -220,6 +242,8 @@ fn gen_node(node: &Node) {
         Node::Gt(lhs, rhs) => emit_cmp("gt", lhs, rhs),
         Node::Le(lhs, rhs) => emit_cmp("le", lhs, rhs),
         Node::Ge(lhs, rhs) => emit_cmp("ge", lhs, rhs),
+        Node::Deref(node) => emit_deref(node),
+        Node::Addr(node) => emit_addr(node),
     }
 }
 

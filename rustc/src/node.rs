@@ -27,6 +27,8 @@ pub enum Node {
     If(Box<Node>, Box<Node>, Option<Box<Node>>),
     While(Box<Node>, Box<Node>),
     For(Box<Node>, Box<Node>, Box<Node>, Box<Node>),
+    Deref(Box<Node>),
+    Addr(Box<Node>),
 }
 
 fn expect_next(toks: &mut Peekable<TokenIter>, expected: TokenKind) -> Token {
@@ -361,7 +363,7 @@ fn mul(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     lhs
 }
 
-// unary ::= ('+' | '-')? primary
+// unary ::= ('+' | '-')? primary | ('*' | '&') unary
 fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     if let Some(tok) = toks.peek() {
         match tok.kind {
@@ -372,6 +374,14 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             TokenKind::Minus => {
                 toks.next();
                 return Node::Sub(Box::new(Node::Num(0)), Box::new(primary(toks, vars)));
+            }
+            TokenKind::Star => {
+                toks.next();
+                return Node::Deref(Box::new(unary(toks, vars)));
+            }
+            TokenKind::Amp => {
+                toks.next();
+                return Node::Addr(Box::new(unary(toks, vars)));
             }
             _ => {}
         }

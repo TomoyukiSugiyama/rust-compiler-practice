@@ -30,6 +30,7 @@ pub enum TokenKind {
     RBrace,
     I32,
     Arrow,
+    Amp,
 }
 
 #[derive(Debug)]
@@ -129,6 +130,7 @@ const OPERATORS: &[(&str, TokenKind)] = &[
     (")", TokenKind::RParen),
     ("{", TokenKind::LBrace),
     ("}", TokenKind::RBrace),
+    ("&", TokenKind::Amp),
 ];
 
 /// Reads an operator or delimiter and returns the TokenKind by matching against `OPERATORS`.
@@ -425,7 +427,7 @@ mod tests {
 
     #[test]
     fn test_tokenize_all_operators() {
-        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for fn ->";
+        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for fn -> &";
         let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
         assert_eq!(
             kinds,
@@ -453,6 +455,7 @@ mod tests {
                 TokenKind::For,
                 TokenKind::Fn,
                 TokenKind::Arrow,
+                TokenKind::Amp,
                 TokenKind::Eof,
             ]
         );
