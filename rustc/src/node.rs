@@ -1012,4 +1012,39 @@ mod tests {
         let mut vars = Variable::new("".to_string(), 0, None);
         stmt(&mut iter, &mut vars);
     }
+
+    #[test]
+    fn test_unary_plus() {
+        let mut iter = tokenize("+42").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = expr(&mut iter, &mut vars);
+        assert_eq!(node, Node::Num(42));
+    }
+
+    #[test]
+    fn test_unary_minus() {
+        let mut iter = tokenize("-42").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = expr(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Sub(Box::new(Node::Num(0)), Box::new(Node::Num(42)))
+        );
+    }
+
+    #[test]
+    fn test_unary_deref() {
+        let mut iter = tokenize("*42").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = expr(&mut iter, &mut vars);
+        assert_eq!(node, Node::Deref(Box::new(Node::Num(42))));
+    }
+
+    #[test]
+    fn test_unary_addr() {
+        let mut iter = tokenize("&42").into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = expr(&mut iter, &mut vars);
+        assert_eq!(node, Node::Addr(Box::new(Node::Num(42))));
+    }
 }
