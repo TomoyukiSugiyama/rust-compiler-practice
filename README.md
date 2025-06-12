@@ -1,3 +1,26 @@
+# rust-compiler-practice
+
+A simple Rust-like compiler implemented in Rust for learning compiler construction and Rust internals. It aims to compile pseudo-code close to Rust syntax, supporting various language features.
+
+## Features
+
+- Generation of ARM64 assembly
+- Integer literals and arithmetic operations: +, -, *, /
+- Unary operators: + and -
+- Parentheses for grouping
+- Comparison operators: ==, !=, <, <=, >, >=
+- Variable assignment: basic and chained
+- Local variables with `let`
+- Return statements
+- Comments: single-line (`//`) and multi-line (`/* ... */`)
+- Control flow: `if-else`, `for` and `while` loops
+- Function definitions and calls, including recursion and parameters
+- Memory operations: references (`&`) and dereferences (`*`)
+
+## Development Aids
+
+- Debugging via external function calls (`debug1`, `debug2`, ...)
+
 ## Tests
 
 ### Unit Tests
