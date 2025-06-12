@@ -151,6 +151,43 @@ fn read_operator(chars: &mut Peekable<CharIndices>, exp: &str, pos: usize) -> To
     error_at(exp, pos, "無効な文字です");
 }
 
+/// Skips characters until the end of the current line (including newline), assuming the next two chars are "//".
+fn skip_line_comment(chars: &mut Peekable<CharIndices>) {
+    // consume "//"
+    chars.next();
+    chars.next();
+    while let Some((_, ch)) = chars.next() {
+        if ch == '\n' {
+            break;
+        }
+    }
+}
+
+/// Skips a C-style comment block, reporting an error to stdout if not closed.
+fn skip_block_comment(chars: &mut Peekable<CharIndices>, _exp: &str, start_pos: usize) {
+    // consume "/*"
+    chars.next();
+    chars.next();
+    let mut found_end = false;
+    while let Some((_, ch)) = chars.next() {
+        if ch == '*' {
+            if let Some(&(_, next_ch)) = chars.peek() {
+                if next_ch == '/' {
+                    chars.next();
+                    found_end = true;
+                    break;
+                }
+            }
+        }
+    }
+    if !found_end {
+        println!(
+            "コメントの閉じタグ */ が見つかりませんでした at pos {}",
+            start_pos
+        );
+    }
+}
+
 /// Tokenizes an arithmetic expression into a linked list of tokens.
 /// Supports positive integers, identifiers, operators, and delimiters.
 /// Returns the head `Token`, whose chained `next` pointers end with an `Eof` token.
@@ -169,43 +206,26 @@ pub fn tokenize(exp: &str) -> Token {
         let rest = &exp[i..];
         if c.is_whitespace() {
             chars.next();
+            continue;
         } else if rest.starts_with("//") {
             // skip single-line comment
-            chars.next(); // consume '/'
-            chars.next(); // consume '/'
-            while let Some((_, ch2)) = chars.next() {
-                if ch2 == '\n' {
-                    break;
-                }
-            }
+            skip_line_comment(&mut chars);
+            continue;
         } else if rest.starts_with("/*") {
             // skip multi-line comment
-            chars.next(); // consume '/'
-            chars.next(); // consume '*'
-            let mut found_end = false;
-            while let Some((_, ch2)) = chars.next() {
-                if ch2 == '*' {
-                    if let Some(&(_, next_ch2)) = chars.peek() {
-                        if next_ch2 == '/' {
-                            chars.next(); // consume '/'
-                            found_end = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            if !found_end {
-                println!("コメントの閉じタグ */ が見つかりませんでした at pos {}", i);
-            }
+            skip_block_comment(&mut chars, exp, i);
+            continue;
         } else if c.is_ascii_digit() {
             let start = i;
             let num = read_number(&mut chars);
             tail = tail.push(TokenKind::Number(num), start);
+            continue;
         } else if c.is_ascii_alphabetic() {
             let start = i;
             let word = read_ident(&mut chars);
             let kind = lookup_keyword(&word).unwrap_or(TokenKind::Ident(word));
             tail = tail.push(kind, start);
+            continue;
         } else {
             // Operators and delimiters
             let pos = i;
