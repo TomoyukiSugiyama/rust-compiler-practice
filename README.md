@@ -1,23 +1,17 @@
-## Setup
-
-```bash
-$ mkdir -p rustc/bin
-```
-
 ## Tests
 
 ### Unit Tests
 
 ```bash
-cd rustc
-cargo test
+% cd rustc
+% cargo test
 ```
 
 ### Integration Tests
 
 ```bash
-cd rustc
-% ./test/test.sh 
+% cd rustc
+% cargo run --bin test-runner
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.00s
      Running `target/debug/rustc ./test/assets/number.rs`
 ./test/assets/number.rs => 12
@@ -62,7 +56,7 @@ fn test() {
 
 From the `rustc` directory, run:
 ```bash
-cargo run -- ./test/assets/fibonacci-debug.rs > ./bin/test-debug.s
+% cargo run -- ./test/assets/fibonacci-debug.rs > ./bin/test-debug.s
 ```
 
 This produces `bin/test-debug.s` containing arm64 assembly for the test.
@@ -71,8 +65,8 @@ This produces `bin/test-debug.s` containing arm64 assembly for the test.
 
 Navigate to the function-call test project and run:
 ```bash
-cd test/function-call
-cargo run
+% cd test/function-call
+% cargo run
 ```
 
 You should see:
