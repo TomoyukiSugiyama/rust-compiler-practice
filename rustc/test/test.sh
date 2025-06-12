@@ -78,7 +78,7 @@ assert 4 'fn main(){a=0; b=1; for ( i=0; i<3; i=i+1 ) { a=a+1; b=b+1; } return b
 # function call
 assert 5 'fn foo(){a=3;return a;} fn main(){b=foo(); return b+2;}'
 # fibonacci
-fib=$(cat ./test/assets/fibonacci.rs)
+fib=$(cat ./test/assets/fibonacci-allow-warnings.rs)
 assert 55 "$fib"
 # dereference, address-of
 assert 3 'fn main(){a=3;b=&a; return *b;}'

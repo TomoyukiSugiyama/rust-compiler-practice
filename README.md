@@ -22,14 +22,14 @@ OK
 
 # Function call test
 
-## 1. Generate `test-foo.s`
+## 1. Generate `test-debug.s`
 
 ```bash
 % cd rustc
 # debug function call
 % cargo run -- 'fn test(){debug2(1, 2);}' > bin/test-debug.s
 # debug fibonacci
-$ fib=$(cat test/assets/debug-fibonacci.rs);cargo run -- $fib > ./bin/test-debug.s
+$ fib=$(cat test/assets/fibonacci-debug.rs);cargo run -- $fib > ./bin/test-debug.s
 ```
 
 
