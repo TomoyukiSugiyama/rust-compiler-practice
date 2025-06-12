@@ -81,4 +81,21 @@ mod tests {
         let tok = head.next.as_ref().unwrap();
         error_tok(&tok, "test error");
     }
+
+    #[test]
+    #[should_panic(expected = "multiline start")]
+    fn test_error_at_multiline_line1() {
+        let exp = "first line\nsecond line\nthird line";
+        // position in first line (pos 0)
+        error_at(exp, 0, "multiline start");
+    }
+
+    #[test]
+    #[should_panic(expected = "multiline mid")]
+    fn test_error_at_multiline_line2() {
+        let exp = "first line\nsecond line foo\nthird line";
+        // position of 'foo' in second line
+        let pos = exp.find("foo").unwrap();
+        error_at(exp, pos, "multiline mid");
+    }
 }
