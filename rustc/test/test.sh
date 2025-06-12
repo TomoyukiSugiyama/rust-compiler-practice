@@ -24,66 +24,61 @@ assert() {
 }
 
 # number
-assert 12 'fn main(){12;}'
-assert 1 'fn main(){1;}'
-# addition
-assert 3 'fn main(){1+2;}'
-# subtraction
-assert 1 'fn main(){4-3;}'
-# addition and subtraction
-assert 48 'fn main(){1+50-3;}'
-assert 4 'fn main(){1+2-3+4;}'
-# whitespace
-assert 4 'fn main(){ 1  +2- 3+4 ; }'
-# multiplication
-assert 7 'fn main(){ 1 + 2 * 3 ;}'
-# division
-assert 4 'fn main(){ 6 - 6 / 3 ;}'
-# parentheses
-assert 9 'fn main(){ (1 + 2) * 3 ;}'
-# unary
-assert -3 'fn main(){-3;}'
-assert -8 'fn main(){-(3+5);}'
-assert -15 'fn main(){-3*+5;}'
-# equality
-assert 1 'fn main(){1==1;}'
-assert 0 'fn main(){1==2;}'
-assert 0 'fn main(){1!=1;}'
-assert 1 'fn main(){1!=2;}'
-# relational
-assert 0 'fn main(){1<1;}'
-assert 1 'fn main(){1<2;}'
-assert 0 'fn main(){1>1;}'
-assert 0 'fn main(){2<=1;}'
-assert 1 'fn main(){1<=1;}'
-assert 0 'fn main(){1>=2;}'
-assert 1 'fn main(){1>=1;}'
-# assignment
-assert 3 'fn main(){foo=3;}'
-# multiple assignment
-assert 3 'fn main(){foo=bar=2+1;}'
-# return statement
-assert 3 'fn main(){return 4-1;}'
-# assignment
-assert 6 'fn main(){a=1; b=4; return a+b+1;}'
-# if else statement
-assert 3 'fn main(){if ( 1 == 1 ) return 3; else return 2;}'
-assert 2 'fn main(){if ( 1 == 2 ) return 3; else return 2;}'
-# while loop
-assert 10 'fn main(){a=0; while ( a < 10 ) a=a+1; return a;}'
-# for loop
-assert 10 'fn main(){a=0; for ( i=0; i<10; i=i+1 ) a=a+1; return a;}'
-# nested for loop
-assert 4 'fn main(){a=0; b=1; for ( i=0; i<3; i=i+1 ) { a=a+1; b=b+1; } return b;}'
-# function call
-assert 5 'fn foo(){a=3;return a;} fn main(){b=foo(); return b+2;}'
+assert 12 "./test/assets/number.rs"
+# # addition
+assert 3 "./test/assets/addition.rs"
+# # subtraction
+assert 1 "./test/assets/subtraction.rs"
+# # addition and subtraction
+assert 48 "./test/assets/addition-and-subtraction.rs"
+# # whitespace
+assert 4 "./test/assets/whitespace.rs"
+# # multiplication
+assert 7 "./test/assets/multiplication.rs"
+# # division
+assert 4 "./test/assets/division.rs"
+# # parentheses
+assert 9 "./test/assets/parentheses.rs"
+# # unary
+assert -3 "./test/assets/unary-minus.rs"
+assert -8 "./test/assets/unary-neg-parens.rs"
+assert -15 "./test/assets/unary-mixed.rs"
+# # equality
+assert 1 "./test/assets/eq-true.rs"
+assert 0 "./test/assets/eq-false.rs"
+# # relational
+assert 0 "./test/assets/lt-false.rs"
+assert 1 "./test/assets/lt-true.rs"
+assert 0 "./test/assets/gt-false.rs"
+assert 1 "./test/assets/gt-true.rs"
+assert 0 "./test/assets/le-false.rs"
+assert 1 "./test/assets/le-true.rs"
+assert 0 "./test/assets/ge-false.rs"
+assert 1 "./test/assets/ge-true.rs"
+# # assignment
+assert 3 "./test/assets/assign-simple.rs"
+# # multiple assignment
+assert 3 "./test/assets/assign-multi.rs"
+# # return statement
+assert 3 "./test/assets/return-stmt.rs"
+# # assignment
+assert 6 "./test/assets/assign-vars.rs"
+# # if else statement
+assert 3 "./test/assets/if-else-true.rs"
+assert 2 "./test/assets/if-else-false.rs"
+# # while loop
+assert 10 "./test/assets/while-loop.rs"
+# # for loop
+assert 10 "./test/assets/for-loop.rs"
+# # nested for loop
+assert 4 "./test/assets/nested-loop.rs"
+# # function call
+assert 5 "./test/assets/func-call.rs"
 # fibonacci
-fib=$(cat ./test/assets/fibonacci-allow-warnings.rs)
-assert 55 "$fib"
-# dereference, address-of
-assert 3 'fn main(){a=3;b=&a; return *b;}'
-# local variable
-assert 10 'fn main(){let num = 10; return num;}'
-
+assert 55 "./test/assets/fibonacci-allow-warnings.rs"
+# # dereference, address-of
+assert 3 "./test/assets/deref.rs"
+# # local variable
+assert 10 "./test/assets/local-var.rs"
 
 echo "OK"
