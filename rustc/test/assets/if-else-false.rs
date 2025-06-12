@@ -1,3 +1,7 @@
 fn main(){
-    if ( 1 == 2 ) return 3; else return 2;
+    if ( 1 == 2 ) {
+        return 3;
+    } else {
+        return 2;
+    }
 } 
