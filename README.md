@@ -33,9 +33,13 @@ cd rustc
 OK
 ```
 
-## Function Call Test
+## Debugging via Function Calls
 
-This test verifies that our compiler correctly handles function calls by compiling a recursive Fibonacci function into assembly and running it in an integration test.
+Since our compiler currently does not support printing variable values to standard output, we use function calls to Rust's `println!` macro as a workaround.
+
+How it works:
+- In `test/assets/fibonacci-debug.rs`, we embed a call to `debug1` and implement a `test` function instead of `main`.
+- In the Rust `main` function, we call `test()` inside an `unsafe` block, which invokes `debug1` to execute `println!`.
 
 ### 1. Create the Fibonacci source
 
