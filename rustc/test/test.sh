@@ -80,5 +80,7 @@ assert 55 "./test/assets/fibonacci-allow-warnings.rs"
 assert 3 "./test/assets/deref.rs"
 # # local variable
 assert 10 "./test/assets/local-var.rs"
+# # comment out
+assert 10 "./test/assets/comments.rs"
 
 echo "OK"

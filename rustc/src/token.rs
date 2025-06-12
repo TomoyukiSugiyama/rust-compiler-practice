@@ -166,8 +166,37 @@ pub fn tokenize(exp: &str) -> Token {
     // Iterate with char_indices to track positions
     let mut chars = exp.char_indices().peekable();
     while let Some(&(i, c)) = chars.peek() {
+        let rest = &exp[i..];
         if c.is_whitespace() {
             chars.next();
+        } else if rest.starts_with("//") {
+            // skip single-line comment
+            chars.next(); // consume '/'
+            chars.next(); // consume '/'
+            while let Some((_, ch2)) = chars.next() {
+                if ch2 == '\n' {
+                    break;
+                }
+            }
+        } else if rest.starts_with("/*") {
+            // skip multi-line comment
+            chars.next(); // consume '/'
+            chars.next(); // consume '*'
+            let mut found_end = false;
+            while let Some((_, ch2)) = chars.next() {
+                if ch2 == '*' {
+                    if let Some(&(_, next_ch2)) = chars.peek() {
+                        if next_ch2 == '/' {
+                            chars.next(); // consume '/'
+                            found_end = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if !found_end {
+                println!("コメントの閉じタグ */ が見つかりませんでした at pos {}", i);
+            }
         } else if c.is_ascii_digit() {
             let start = i;
             let num = read_number(&mut chars);
