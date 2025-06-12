@@ -6,6 +6,6 @@ fn fib(n: i32) -> i32 {
 }
 
 fn test() {
-    res = fib(10);
+    let res = fib(10);
     debug1(res);
 }

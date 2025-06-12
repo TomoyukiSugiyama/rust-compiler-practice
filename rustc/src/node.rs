@@ -118,6 +118,7 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 
 // stmt ::= expr ';' |
 //          '{' stmt* '}' |
+//          'let' ident '=' expr ';' |
 //          'return' expr ';' |
 //          'if' '(' expr ')' stmt ('else' stmt)? |
 //          'while' '(' expr ')' stmt |
@@ -248,6 +249,33 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                     Box::new(update),
                     Box::new(body),
                 );
+            }
+            TokenKind::Let => {
+                // parse let statement: 'let' ident '=' expr ';'
+                toks.next();
+                // expect identifier
+                let tok_ident = toks.next().unwrap();
+                let name = if let TokenKind::Ident(ident) = tok_ident.kind.clone() {
+                    ident
+                } else {
+                    error_tok(&tok_ident, "expected identifier after 'let'");
+                };
+                // expect '='
+                expect_next(toks, TokenKind::Assign);
+                // parse expression
+                let rhs = expr(toks, vars);
+                // expect ';'
+                expect_next(toks, TokenKind::Semicolon);
+                // check for duplicate variable
+                if vars.find(&name).is_some() {
+                    error_tok(&tok_ident, "variable already declared");
+                }
+                // allocate new variable offset
+                let last = vars.next.as_ref().map(|v| v.offset).unwrap_or(vars.offset);
+                let new_off = last + 8;
+                vars.push(name.clone(), new_off);
+                // return assignment node
+                return Node::Assign(Box::new(Node::Var(new_off)), Box::new(rhs));
             }
             _ => {}
         }

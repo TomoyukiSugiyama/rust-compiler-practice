@@ -31,6 +31,7 @@ pub enum TokenKind {
     I32,
     Arrow,
     Amp,
+    Let,
 }
 
 #[derive(Debug)]
@@ -96,6 +97,7 @@ const KEYWORDS: &[(&str, TokenKind)] = &[
     ("while", TokenKind::While),
     ("for", TokenKind::For),
     ("fn", TokenKind::Fn),
+    ("let", TokenKind::Let),
     ("i32", TokenKind::I32),
 ];
 
@@ -427,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_tokenize_all_operators() {
-        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for fn -> &";
+        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for fn -> & let";
         let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
         assert_eq!(
             kinds,
@@ -456,9 +458,9 @@ mod tests {
                 TokenKind::Fn,
                 TokenKind::Arrow,
                 TokenKind::Amp,
+                TokenKind::Let,
                 TokenKind::Eof,
             ]
         );
     }
-
 }

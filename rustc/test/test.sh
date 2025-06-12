@@ -82,6 +82,8 @@ fib=$(cat ./test/assets/fibonacci-allow-warnings.rs)
 assert 55 "$fib"
 # dereference, address-of
 assert 3 'fn main(){a=3;b=&a; return *b;}'
+# local variable
+assert 10 'fn main(){let num = 10; return num;}'
 
 
 echo "OK"
