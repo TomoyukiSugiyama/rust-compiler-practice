@@ -65,8 +65,7 @@ This produces `bin/test-debug.s` containing arm64 assembly for the test.
 
 Navigate to the function-call test project and run:
 ```bash
-% cd test/function-call
-% cargo run
+% cargo run --manifest-path test/function-call/Cargo.toml
 ```
 
 You should see:

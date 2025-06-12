@@ -2,8 +2,7 @@
 name = "rustc"
 version = "0.1.0"
 edition = "2024"
-
-[dependencies]
+default-run = "rustc"
 
 [[bin]]
 name = "test-runner"
