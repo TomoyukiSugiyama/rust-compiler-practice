@@ -61,7 +61,7 @@ From the `rustc` directory, run:
 cargo run -- ./test/assets/fibonacci-debug.rs > ./bin/test-debug.s
 ```
 
-This produces `bin/test-debug.s` containing x86_64 assembly for the test.
+This produces `bin/test-debug.s` containing arm64 assembly for the test.
 
 ### 3. Run the integration test
 
