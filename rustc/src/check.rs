@@ -11,9 +11,32 @@ pub fn set_current_exp(exp: &str) {
 }
 
 pub fn error_at(exp: &str, pos: usize, msg: &str) -> ! {
-    // Print the input and a caret under the error position
-    println!("{}", exp);
-    println!("{}^ {}", " ".repeat(pos), msg);
+    // Calculate line number and starting byte index of the line
+    let mut line_num = 1;
+    let mut line_start = 0;
+    for (idx, ch) in exp.char_indices() {
+        if idx >= pos {
+            break;
+        }
+        if ch == '\n' {
+            line_num += 1;
+            line_start = idx + ch.len_utf8();
+        }
+    }
+    // Determine the end of the current line
+    let line_end = exp[line_start..]
+        .find('\n')
+        .map(|i| line_start + i)
+        .unwrap_or(exp.len());
+    let line = &exp[line_start..line_end];
+    // Calculate the column (character offset) within the line
+    let col = exp[line_start..pos].chars().count();
+    // Print the line with its number
+    println!("{} | {}", line_num, line);
+    // Build and print the caret line with message
+    let line_num_str = line_num.to_string();
+    let prefix_spaces = " ".repeat(line_num_str.len()) + " | ";
+    println!("{}{}^ {}", prefix_spaces, " ".repeat(col), msg);
     panic!("{}", msg);
 }
 
