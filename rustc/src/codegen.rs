@@ -181,7 +181,7 @@ fn emit_call(name: &String, args: &[Node]) {
         println!("    ldr x{}, [sp], #16", i);
     }
     // call external function (prepend underscore)
-    if name == "print" {
+    if name == "write" {
         emit_print_string();
     } else {
         println!("    bl _{}", name);
