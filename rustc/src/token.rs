@@ -581,4 +581,33 @@ mod tests {
     fn test_tokenize_unclosed_string() {
         let _ = tokenize(r#""Hello, world!"#);
     }
+
+    #[test]
+    fn test_tokenize_brackets_are_recognized() {
+        let kinds: Vec<TokenKind> = tokenize("[]").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![TokenKind::LBracket, TokenKind::RBracket, TokenKind::Eof]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_indexing_syntax() {
+        let kinds: Vec<TokenKind> = tokenize("arr[123]")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Ident {
+                    name: "arr".to_string()
+                },
+                TokenKind::LBracket,
+                TokenKind::Number { num: 123 },
+                TokenKind::RBracket,
+                TokenKind::Eof,
+            ]
+        );
+    }
 }
