@@ -157,7 +157,7 @@ This sample displays the initial state of an Othello board. It uses string liter
 ```bash
 % cd rustc
 % mkdir -p ./bin
-% cargo run -- ./sample/display-othello-board.rs > ./bin/display-othello-board.rs
+% cargo run -- ./sample/display-othello-board.rs > ./bin/display-othello-board.s
 % clang -arch arm64 -x assembler ./bin/display-othello-board.s -o ./bin/display-othello-board
 % ./bin/display-othello-board
   A B C D E F G H
