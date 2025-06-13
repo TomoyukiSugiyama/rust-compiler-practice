@@ -43,6 +43,7 @@ fn main() {
         (3, "./test/assets/deref.rs"),
         (10, "./test/assets/local-var.rs"),
         (10, "./test/assets/comments.rs"),
+        (0, "./test/assets/string.rs"),
     ];
 
     fs::create_dir_all("bin").unwrap_or_else(|e| {
