@@ -219,12 +219,35 @@ fn emit_addr(node: &Node) {
     }
 }
 
+// helper to emit code for string literals
+fn emit_string(s: &str) {
+    // Generate a unique label for this string
+    let id = LABEL_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let label = format!(".L.str.{}", id);
+
+    // Emit the string data
+    println!(".section __TEXT,__cstring");
+    println!("{}:", label);
+    println!("    .asciz \"{}\"", s);
+
+    // Switch back to text section
+    println!(".section __TEXT,__text");
+
+    // Load the address of the string into x0
+    println!("    adrp x0, {}@PAGE", label);
+    println!("    add x0, x0, {}@PAGEOFF", label);
+
+    // Push the string address onto the stack
+    println!("    str x0, [sp, #-16]!");
+}
+
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
         Node::Seq(lhs, rhs) => emit_seq(lhs, rhs),
         Node::Function(name, args, body) => emit_function(name, args, body),
         Node::Num(n) => push_imm(*n),
+        Node::String(s) => emit_string(s), // Handle string literals
         Node::Var(off) => emit_var(*off),
         Node::Call(name, args) => emit_call(name, args),
         Node::Return(node) => emit_return(node),

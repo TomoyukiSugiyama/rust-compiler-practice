@@ -3,6 +3,7 @@ pub enum TokenKind {
     Start,
     Number(u64),
     Ident(String),
+    String(String),
     Plus,
     Minus,
     Star,
@@ -188,6 +189,21 @@ fn skip_block_comment(chars: &mut Peekable<CharIndices>, _exp: &str, start_pos: 
     }
 }
 
+/// Reads a string literal and returns it as a string.
+fn read_string(chars: &mut Peekable<CharIndices>, exp: &str, start_pos: usize) -> String {
+    let mut s = String::new();
+    // Skip opening quote
+    chars.next();
+    while let Some((_, ch)) = chars.next() {
+        if ch == '"' {
+            return s;
+        }
+        s.push(ch);
+    }
+    // If we get here, we hit EOF before finding closing quote
+    error_at(exp, start_pos, "文字列が閉じられていません");
+}
+
 /// Tokenizes an arithmetic expression into a linked list of tokens.
 /// Supports positive integers, identifiers, operators, and delimiters.
 /// Returns the head `Token`, whose chained `next` pointers end with an `Eof` token.
@@ -214,6 +230,12 @@ pub fn tokenize(exp: &str) -> Token {
         } else if rest.starts_with("/*") {
             // skip multi-line comment
             skip_block_comment(&mut chars, exp, i);
+            continue;
+        } else if c == '"' {
+            // Handle string literal
+            let start = i;
+            let s = read_string(&mut chars, exp, start);
+            tail = tail.push(TokenKind::String(s), start);
             continue;
         } else if c.is_ascii_digit() {
             let start = i;
@@ -511,5 +533,26 @@ mod tests {
                 TokenKind::Eof,
             ]
         );
+    }
+
+    #[test]
+    fn test_tokenize_string() {
+        let kinds: Vec<TokenKind> = tokenize(r#""Hello, world!""#)
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::String("Hello, world!".to_string()),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "文字列が閉じられていません")]
+    fn test_tokenize_unclosed_string() {
+        let _ = tokenize(r#""Hello, world!"#);
     }
 }

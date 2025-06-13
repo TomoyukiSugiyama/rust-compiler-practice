@@ -8,6 +8,7 @@ pub enum Node {
     // Sequence of two statements: execute first, then second
     Seq(Box<Node>, Box<Node>),
     Num(u64),
+    String(String),
     Var(u64),
     Function(String, Vec<Node>, Box<Node>),
     // Function call with optional arguments: name(arg1, arg2, ...)
@@ -420,10 +421,12 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 // primary ::= number |
 //             ident ('(' args? ')')? |
 //             '(' expr ')' |
+//             string |
 fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let tok = toks.next().unwrap();
     match tok.kind {
         TokenKind::Number(n) => Node::Num(n),
+        TokenKind::String(s) => Node::String(s),
         TokenKind::LParen => {
             // Parse sub-expression
             let node = expr(toks, vars);
@@ -1074,5 +1077,13 @@ mod tests {
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = expr(&mut iter, &mut vars);
         assert_eq!(node, Node::Addr(Box::new(Node::Num(42))));
+    }
+
+    #[test]
+    fn test_primary_string() {
+        let mut iter = tokenize(r#""Hello, world!""#).into_iter().peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = primary(&mut iter, &mut vars);
+        assert_eq!(node, Node::String("Hello, world!".to_string()));
     }
 }
