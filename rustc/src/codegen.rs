@@ -166,8 +166,8 @@ fn emit_syscall(name: &String, args: &[Node]) {
             // x0 = file descriptor (1 for stdout)
             // x1 = buffer address
             // x2 = buffer length
+            println!("    mov x1, x0"); // Move string address to x1
             println!("    mov x0, #1"); // stdout file descriptor
-            // x1 already contains the string address
             // Calculate string length
             println!("    mov x2, #0"); // Initialize length counter
             println!("    mov x3, x1"); // Copy string address to x3
