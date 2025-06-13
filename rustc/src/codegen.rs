@@ -149,25 +149,43 @@ fn emit_for(init: &Node, cond: &Node, update: &Node, body: &Node) {
     println!("{}:", end_label);
 }
 
-// helper to emit code for printing strings
-fn emit_print_string() {
-    // For print function, we need to handle string arguments specially
-    println!("    str x0, [x29, #-8]"); // Save string address in local variable
-    println!("    mov x0, #1"); // stdout file descriptor
-    println!("    ldr x1, [x29, #-8]"); // Load string address
-    println!("    mov x2, #0"); // Initialize length counter
-    println!("    mov x3, x1"); // Copy string address to x3
-    println!(".Lstrlen_loop:"); // Label for string length calculation loop
-    println!("    ldrb w4, [x3], #1"); // Load byte and increment pointer
-    println!("    cbz w4, .Lstrlen_end"); // If zero (null terminator), exit loop
-    println!("    add x2, x2, #1"); // Increment length counter
-    println!("    b .Lstrlen_loop"); // Branch back to loop start
-    println!(".Lstrlen_end:"); // Label for loop end
-    println!("    movz x16, #0x0004, lsl #0"); // Set lower 16 bits
-    println!("    movk x16, #0x2000, lsl #16"); // Set upper 16 bits
-    println!("    svc #0x80"); // System call
-    println!("    ldr x0, [x29, #-8]"); // Restore original string address
-    println!("    str x0, [sp, #-16]!"); // Push back onto stack
+// helper to emit code for system calls
+fn emit_syscall(name: &String, args: &[Node]) {
+    // evaluate arguments and push onto stack
+    for arg in args {
+        gen_node(arg);
+    }
+    // pop arguments into x registers (reverse order)
+    for i in (0..args.len()).rev() {
+        println!("    ldr x{}, [sp], #16", i);
+    }
+    // Set up system call number in x16
+    match name.as_str() {
+        "write" => {
+            // For write syscall:
+            // x0 = file descriptor (1 for stdout)
+            // x1 = buffer address
+            // x2 = buffer length
+            println!("    mov x0, #1"); // stdout file descriptor
+            // x1 already contains the string address
+            // Calculate string length
+            println!("    mov x2, #0"); // Initialize length counter
+            println!("    mov x3, x1"); // Copy string address to x3
+            println!(".Lstrlen_loop:"); // Label for string length calculation loop
+            println!("    ldrb w4, [x3], #1"); // Load byte and increment pointer
+            println!("    cbz w4, .Lstrlen_end"); // If zero (null terminator), exit loop
+            println!("    add x2, x2, #1"); // Increment length counter
+            println!("    b .Lstrlen_loop"); // Branch back to loop start
+            println!(".Lstrlen_end:"); // Label for loop end
+            println!("    movz x16, #0x0004, lsl #0"); // Set lower 16 bits
+            println!("    movk x16, #0x2000, lsl #16"); // Set upper 16 bits
+        }
+        _ => panic!("unsupported system call: {}", name),
+    }
+    // Make the system call
+    println!("    svc #0x80");
+    // Push return value onto stack
+    println!("    str x0, [sp, #-16]!");
 }
 
 // helper to emit code for function call statements with arguments
@@ -180,18 +198,13 @@ fn emit_call(name: &String, args: &[Node]) {
     for i in (0..args.len()).rev() {
         println!("    ldr x{}, [sp], #16", i);
     }
-    // call external function (prepend underscore)
-    if name == "write" {
-        emit_print_string();
-    } else {
-        // Save caller-saved registers
-        println!("    stp x29, x30, [sp, #-16]!");
-        println!("    bl _{}", name);
-        // Restore caller-saved registers
-        println!("    ldp x29, x30, [sp], #16");
-        // Push return value onto stack
-        println!("    str x0, [sp, #-16]!");
-    }
+    // Save caller-saved registers
+    println!("    stp x29, x30, [sp, #-16]!");
+    println!("    bl _{}", name);
+    // Restore caller-saved registers
+    println!("    ldp x29, x30, [sp], #16");
+    // Push return value onto stack
+    println!("    str x0, [sp, #-16]!");
 }
 
 fn gen_prologue(name: &String) {
@@ -279,9 +292,10 @@ fn gen_node(node: &Node) {
         Node::Seq(lhs, rhs) => emit_seq(lhs, rhs),
         Node::Function(name, args, body) => emit_function(name, args, body),
         Node::Num(n) => push_imm(*n),
-        Node::StringSlice(s) => emit_string(s), // Changed from String to StringSlice
+        Node::StringSlice(s) => emit_string(s),
         Node::Var(off) => emit_var(*off),
         Node::Call(name, args) => emit_call(name, args),
+        Node::Syscall(name, args) => emit_syscall(name, args),
         Node::Return(node) => emit_return(node),
         Node::If(cond, then_stmt, else_stmt) => emit_if(cond, then_stmt, else_stmt.as_deref()),
         Node::While(cond, body) => emit_while(cond, body),

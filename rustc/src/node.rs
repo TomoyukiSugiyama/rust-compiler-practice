@@ -13,6 +13,8 @@ pub enum Node {
     Function(String, Vec<Node>, Box<Node>),
     // Function call with optional arguments: name(arg1, arg2, ...)
     Call(String, Vec<Node>),
+    // System call with arguments: syscall(name, args)
+    Syscall(String, Vec<Node>),
     Assign(Box<Node>, Box<Node>),
     Add(Box<Node>, Box<Node>),
     Sub(Box<Node>, Box<Node>),
@@ -451,6 +453,10 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                     };
                     // expect closing ')'
                     expect_next(toks, TokenKind::RParen);
+                    // Special handling for write as a system call
+                    if name == "write" {
+                        return Node::Syscall("write".to_string(), args_vec);
+                    }
                     return Node::Call(name, args_vec);
                 }
             }
