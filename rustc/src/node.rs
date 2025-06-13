@@ -8,7 +8,7 @@ pub enum Node {
     // Sequence of two statements: execute first, then second
     Seq(Box<Node>, Box<Node>),
     Num(u64),
-    String(String),
+    StringSlice(String),
     Var(u64),
     Function(String, Vec<Node>, Box<Node>),
     // Function call with optional arguments: name(arg1, arg2, ...)
@@ -426,7 +426,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let tok = toks.next().unwrap();
     match tok.kind {
         TokenKind::Number(n) => Node::Num(n),
-        TokenKind::String(s) => Node::String(s),
+        TokenKind::String(s) => Node::StringSlice(s),
         TokenKind::LParen => {
             // Parse sub-expression
             let node = expr(toks, vars);
@@ -1084,6 +1084,6 @@ mod tests {
         let mut iter = tokenize(r#""Hello, world!""#).into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = primary(&mut iter, &mut vars);
-        assert_eq!(node, Node::String("Hello, world!".to_string()));
+        assert_eq!(node, Node::StringSlice("Hello, world!".to_string()));
     }
 }
