@@ -157,12 +157,12 @@ fn emit_print_string() {
     println!("    ldr x1, [x29, #-8]"); // Load string address
     println!("    mov x2, #0"); // Initialize length counter
     println!("    mov x3, x1"); // Copy string address to x3
-    println!("1:"); // Label for loop start
+    println!(".Lstrlen_loop:"); // Label for string length calculation loop
     println!("    ldrb w4, [x3], #1"); // Load byte and increment pointer
-    println!("    cbz w4, 2f"); // If zero (null terminator), exit loop
+    println!("    cbz w4, .Lstrlen_end"); // If zero (null terminator), exit loop
     println!("    add x2, x2, #1"); // Increment length counter
-    println!("    b 1b"); // Branch back to loop start
-    println!("2:"); // Label for loop end
+    println!("    b .Lstrlen_loop"); // Branch back to loop start
+    println!(".Lstrlen_end:"); // Label for loop end
     println!("    movz x16, #0x0004, lsl #0"); // Set lower 16 bits
     println!("    movk x16, #0x2000, lsl #16"); // Set upper 16 bits
     println!("    svc #0x80"); // System call
