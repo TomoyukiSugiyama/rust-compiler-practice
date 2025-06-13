@@ -427,7 +427,7 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let tok = toks.next().unwrap();
     match tok.kind {
-        TokenKind::Number(n) => Node::Num(n),
+        TokenKind::Number { num } => Node::Num(num),
         TokenKind::String(s) => Node::StringSlice(s),
         TokenKind::LParen => {
             // Parse sub-expression

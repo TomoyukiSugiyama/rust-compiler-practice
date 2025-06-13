@@ -1,7 +1,7 @@
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind {
     Start,
-    Number(u64),
+    Number { num: u64 },
     Ident(String),
     String(String),
     Plus,
@@ -240,7 +240,7 @@ pub fn tokenize(exp: &str) -> Token {
         } else if c.is_ascii_digit() {
             let start = i;
             let num = read_number(&mut chars);
-            tail = tail.push(TokenKind::Number(num), start);
+            tail = tail.push(TokenKind::Number { num }, start);
             continue;
         } else if c.is_ascii_alphabetic() {
             let start = i;
@@ -315,11 +315,11 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                &TokenKind::Number(12),
+                &TokenKind::Number { num: 12 },
                 &TokenKind::Plus,
-                &TokenKind::Number(34),
+                &TokenKind::Number { num: 34 },
                 &TokenKind::Minus,
-                &TokenKind::Number(5),
+                &TokenKind::Number { num: 5 },
                 &TokenKind::Eof,
             ]
         );
@@ -334,11 +334,11 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                TokenKind::Number(12),
+                TokenKind::Number { num: 12 },
                 TokenKind::Plus,
-                TokenKind::Number(34),
+                TokenKind::Number { num: 34 },
                 TokenKind::Minus,
-                TokenKind::Number(5),
+                TokenKind::Number { num: 5 },
                 TokenKind::Eof,
             ]
         );
@@ -414,7 +414,7 @@ mod tests {
                 TokenKind::RParen,
                 TokenKind::LBrace,
                 TokenKind::Return,
-                TokenKind::Number(42),
+                TokenKind::Number { num: 42 },
                 TokenKind::Semicolon,
                 TokenKind::RBrace,
                 TokenKind::Eof,
@@ -432,12 +432,12 @@ mod tests {
             kinds,
             vec![
                 TokenKind::LParen,
-                TokenKind::Number(1),
+                TokenKind::Number { num: 1 },
                 TokenKind::Plus,
-                TokenKind::Number(2),
+                TokenKind::Number { num: 2 },
                 TokenKind::RParen,
                 TokenKind::Star,
-                TokenKind::Number(3),
+                TokenKind::Number { num: 3 },
                 TokenKind::Eof,
             ]
         );
@@ -454,9 +454,9 @@ mod tests {
             vec![
                 TokenKind::Ident("foo".to_string()),
                 TokenKind::LParen,
-                TokenKind::Number(1),
+                TokenKind::Number { num: 1 },
                 TokenKind::Comma,
-                TokenKind::Number(2),
+                TokenKind::Number { num: 2 },
                 TokenKind::RParen,
                 TokenKind::Eof,
             ]
