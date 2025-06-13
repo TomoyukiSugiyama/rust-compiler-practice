@@ -8,6 +8,5 @@ fn fib(n: i32) -> i32 {
 }
 
 fn main() {
-    let res = fib(10);
-    return res;
+    fib(10);
 }
