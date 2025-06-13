@@ -65,8 +65,8 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     expect_next(toks, TokenKind::Fn);
     // parse function name
     let tok = toks.next().unwrap();
-    let name = if let TokenKind::Ident(ident) = tok.kind.clone() {
-        ident
+    let name = if let TokenKind::Ident { name } = tok.kind.clone() {
+        name
     } else {
         error_tok(&tok, "expected identifier");
     };
@@ -75,7 +75,7 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     // parse optional parameters only if the next token is an identifier
     let mut args_vec = Vec::new();
     if let Some(peek) = toks.peek() {
-        if let TokenKind::Ident(_) = peek.kind {
+        if let TokenKind::Ident { name: _ } = peek.kind {
             args_vec = function_args(toks, vars);
         }
     }
@@ -258,8 +258,8 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 toks.next();
                 // expect identifier
                 let tok_ident = toks.next().unwrap();
-                let name = if let TokenKind::Ident(ident) = tok_ident.kind.clone() {
-                    ident
+                let name = if let TokenKind::Ident { name } = tok_ident.kind.clone() {
+                    name
                 } else {
                     error_tok(&tok_ident, "expected identifier after 'let'");
                 };
@@ -428,15 +428,15 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let tok = toks.next().unwrap();
     match tok.kind {
         TokenKind::Number { num } => Node::Num(num),
-        TokenKind::String(s) => Node::StringSlice(s),
+        TokenKind::String { value } => Node::StringSlice(value),
         TokenKind::LParen => {
             // Parse sub-expression
             let node = expr(toks, vars);
             expect_next(toks, TokenKind::RParen);
             node
         }
-        TokenKind::Ident(ref ident) => {
-            let name = ident.clone();
+        TokenKind::Ident { name } => {
+            let name = name.clone();
             // function call: name(args?)
             if let Some(tok2) = toks.peek() {
                 if tok2.kind == TokenKind::LParen {
@@ -482,8 +482,8 @@ fn function_args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Nod
     loop {
         // identifier
         let tok = toks.next().unwrap();
-        let name = if let TokenKind::Ident(ident) = &tok.kind {
-            ident.clone()
+        let name = if let TokenKind::Ident { name } = &tok.kind {
+            name.clone()
         } else {
             error_tok(&tok, "expected identifier");
         };

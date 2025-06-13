@@ -2,8 +2,8 @@
 pub enum TokenKind {
     Start,
     Number { num: u64 },
-    Ident(String),
-    String(String),
+    Ident { name: String },
+    String { value: String },
     Plus,
     Minus,
     Star,
@@ -235,7 +235,7 @@ pub fn tokenize(exp: &str) -> Token {
             // Handle string literal
             let start = i;
             let s = read_string(&mut chars, exp, start);
-            tail = tail.push(TokenKind::String(s), start);
+            tail = tail.push(TokenKind::String { value: s }, start);
             continue;
         } else if c.is_ascii_digit() {
             let start = i;
@@ -245,7 +245,7 @@ pub fn tokenize(exp: &str) -> Token {
         } else if c.is_ascii_alphabetic() {
             let start = i;
             let word = read_ident(&mut chars);
-            let kind = lookup_keyword(&word).unwrap_or(TokenKind::Ident(word));
+            let kind = lookup_keyword(&word).unwrap_or(TokenKind::Ident { name: word });
             tail = tail.push(kind, start);
             continue;
         } else {
@@ -353,8 +353,12 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                TokenKind::Ident("foo".to_string()),
-                TokenKind::Ident("bar".to_string()),
+                TokenKind::Ident {
+                    name: "foo".to_string()
+                },
+                TokenKind::Ident {
+                    name: "bar".to_string()
+                },
                 TokenKind::Eof,
             ]
         );
@@ -369,8 +373,12 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                TokenKind::Ident("foo123".into()),
-                TokenKind::Ident("bar456".into()),
+                TokenKind::Ident {
+                    name: "foo123".into()
+                },
+                TokenKind::Ident {
+                    name: "bar456".into()
+                },
                 TokenKind::Eof,
             ]
         );
@@ -386,8 +394,12 @@ mod tests {
             kinds,
             vec![
                 TokenKind::I32,
-                TokenKind::Ident("i32foo".into()),
-                TokenKind::Ident("fooi32".into()),
+                TokenKind::Ident {
+                    name: "i32foo".into()
+                },
+                TokenKind::Ident {
+                    name: "fooi32".into()
+                },
                 TokenKind::Eof,
             ]
         );
@@ -409,7 +421,9 @@ mod tests {
             kinds,
             vec![
                 TokenKind::Fn,
-                TokenKind::Ident("foo".to_string()),
+                TokenKind::Ident {
+                    name: "foo".to_string()
+                },
                 TokenKind::LParen,
                 TokenKind::RParen,
                 TokenKind::LBrace,
@@ -452,7 +466,9 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                TokenKind::Ident("foo".to_string()),
+                TokenKind::Ident {
+                    name: "foo".to_string()
+                },
                 TokenKind::LParen,
                 TokenKind::Number { num: 1 },
                 TokenKind::Comma,
@@ -490,9 +506,13 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                TokenKind::Ident("foo".to_string()),
+                TokenKind::Ident {
+                    name: "foo".to_string()
+                },
                 TokenKind::Arrow,
-                TokenKind::Ident("bar".to_string()),
+                TokenKind::Ident {
+                    name: "bar".to_string()
+                },
                 TokenKind::Eof,
             ]
         );
@@ -544,7 +564,9 @@ mod tests {
         assert_eq!(
             kinds,
             vec![
-                TokenKind::String("Hello, world!".to_string()),
+                TokenKind::String {
+                    value: "Hello, world!".to_string()
+                },
                 TokenKind::Eof,
             ]
         );
