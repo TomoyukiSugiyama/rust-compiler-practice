@@ -171,12 +171,15 @@ fn emit_syscall(name: &String, args: &[Node]) {
             // Calculate string length
             println!("    mov x2, #0"); // Initialize length counter
             println!("    mov x3, x1"); // Copy string address to x3
-            println!(".Lstrlen_loop:"); // Label for string length calculation loop
+            let id = LABEL_COUNTER.fetch_add(1, Ordering::SeqCst);
+            let loop_label = format!(".Lstrlen_loop{}", id);
+            let end_label = format!(".Lstrlen_end{}", id);
+            println!("{}:", loop_label); // Label for string length calculation loop
             println!("    ldrb w4, [x3], #1"); // Load byte and increment pointer
-            println!("    cbz w4, .Lstrlen_end"); // If zero (null terminator), exit loop
+            println!("    cbz w4, {}", end_label); // If zero (null terminator), exit loop
             println!("    add x2, x2, #1"); // Increment length counter
-            println!("    b .Lstrlen_loop"); // Branch back to loop start
-            println!(".Lstrlen_end:"); // Label for loop end
+            println!("    b {}", loop_label); // Branch back to loop start
+            println!("{}:", end_label); // Label for loop end
             println!("    movz x16, #0x0004, lsl #0"); // Set lower 16 bits
             println!("    movk x16, #0x2000, lsl #16"); // Set upper 16 bits
         }
