@@ -51,6 +51,7 @@ fn main() {
             "./test/assets/systemcall-write.rs",
             Some("Hello, \nworld!\n"),
         ),
+        (3, "./test/assets/array.rs", None),
     ];
 
     fs::create_dir_all("bin").unwrap_or_else(|e| {

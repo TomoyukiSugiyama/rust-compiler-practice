@@ -107,6 +107,10 @@ pub enum Node {
     Addr {
         expr: Box<Node>,
     },
+    ArrayAssign {
+        offset: u64,
+        elements: Vec<Node>,
+    },
 }
 
 fn expect_next(toks: &mut Peekable<TokenIter>, expected: TokenKind) -> Token {
@@ -362,6 +366,41 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 };
                 // expect '='
                 expect_next(toks, TokenKind::Assign);
+                // array literal assignment: let name = [expr, ...];
+                if let Some(peek) = toks.peek() {
+                    if peek.kind == TokenKind::LBracket {
+                        toks.next(); // consume '['
+                        let mut elements = Vec::new();
+                        // parse elements if not empty
+                        if let Some(peek2) = toks.peek() {
+                            if peek2.kind != TokenKind::RBracket {
+                                elements.push(expr(toks, vars));
+                                while let Some(tok2) = toks.peek() {
+                                    if tok2.kind == TokenKind::Comma {
+                                        toks.next();
+                                        elements.push(expr(toks, vars));
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        expect_next(toks, TokenKind::RBracket);
+                        expect_next(toks, TokenKind::Semicolon);
+                        // check for duplicate variable
+                        if vars.find(&name).is_some() {
+                            error_tok(&tok_ident, "variable already declared");
+                        }
+                        // allocate new variable offset
+                        let last = vars.next.as_ref().map(|v| v.offset).unwrap_or(vars.offset);
+                        let new_off = last + 8;
+                        vars.push(name.clone(), new_off);
+                        return Node::ArrayAssign {
+                            offset: new_off,
+                            elements,
+                        };
+                    }
+                }
                 // parse expression
                 let rhs = expr(toks, vars);
                 // expect ';'
@@ -561,6 +600,7 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 }
 
 // primary ::= number |
+//             ident '[' args? ']' |
 //             ident ('(' args? ')')? |
 //             '(' expr ')' |
 //             string |
@@ -577,6 +617,37 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         }
         TokenKind::Ident { name } => {
             let name = name.clone();
+            // array indexing: name[expr]
+            if let Some(tok2) = toks.peek() {
+                if tok2.kind == TokenKind::LBracket {
+                    toks.next(); // consume '['
+                    // parse index expression
+                    let idx = expr(toks, vars);
+                    // expect ']'
+                    expect_next(toks, TokenKind::RBracket);
+                    // determine variable offset (allocate if not exist)
+                    let offset = if let Some(off) = vars.find(&name) {
+                        off
+                    } else {
+                        let last = vars.next.as_ref().map(|v| v.offset).unwrap_or(vars.offset);
+                        let new_off = last + 8;
+                        vars.push(name.clone(), new_off);
+                        new_off
+                    };
+                    // compute address: &name - idx * 8, then dereference
+                    return Node::Deref {
+                        expr: Box::new(Node::Sub {
+                            lhs: Box::new(Node::Addr {
+                                expr: Box::new(Node::Var { offset }),
+                            }),
+                            rhs: Box::new(Node::Mul {
+                                lhs: Box::new(idx),
+                                rhs: Box::new(Node::Num { value: 8 }),
+                            }),
+                        }),
+                    };
+                }
+            }
             // function call: name(args?)
             if let Some(tok2) = toks.peek() {
                 if tok2.kind == TokenKind::LParen {

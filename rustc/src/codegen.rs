@@ -289,6 +289,22 @@ fn emit_string(s: &str) {
     println!("    str x0, [sp, #-16]!");
 }
 
+// helper to emit code for array literal assignment
+fn emit_array_assign(offset: u64, elements: &[Node]) {
+    for (i, elem) in elements.iter().enumerate() {
+        // evaluate element value
+        gen_node(elem);
+        // pop into x1
+        println!("    ldr x1, [sp], #16");
+        // compute element offset and store
+        let off_i = offset + (i as u64) * 8;
+        println!("    str x1, [x29, #-{}]", off_i);
+    }
+    // push dummy to maintain stack balance
+    println!("    mov x0, #0");
+    println!("    str x0, [sp, #-16]!");
+}
+
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
@@ -312,6 +328,7 @@ fn gen_node(node: &Node) {
             update,
             body,
         } => emit_for(init, cond, update, body),
+        Node::ArrayAssign { offset, elements } => emit_array_assign(*offset, elements),
         Node::Assign { lhs, rhs } => emit_assign(lhs, rhs),
         Node::Add { lhs, rhs } => emit_binop("add", lhs, rhs),
         Node::Sub { lhs, rhs } => emit_binop("sub", lhs, rhs),

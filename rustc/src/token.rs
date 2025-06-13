@@ -29,6 +29,8 @@ pub enum TokenKind {
     Fn,
     LBrace,
     RBrace,
+    LBracket,
+    RBracket,
     I32,
     Arrow,
     Amp,
@@ -133,6 +135,8 @@ const OPERATORS: &[(&str, TokenKind)] = &[
     (")", TokenKind::RParen),
     ("{", TokenKind::LBrace),
     ("}", TokenKind::RBrace),
+    ("[", TokenKind::LBracket),
+    ("]", TokenKind::RBracket),
     ("&", TokenKind::Amp),
 ];
 
