@@ -1393,4 +1393,43 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn test_array_assignment_and_indexing() {
+        let mut iter = tokenize("fn main() { let arr = [1, 2, 3]; return arr[2]; }")
+            .into_iter()
+            .peekable();
+        let mut vars = Variable::new("".to_string(), 0, None);
+        let node = program(&mut iter, &mut vars);
+        assert_eq!(
+            node,
+            Node::Function {
+                name: "main".to_string(),
+                args: vec![],
+                body: Box::new(Node::Seq {
+                    first: Box::new(Node::ArrayAssign {
+                        offset: 8,
+                        elements: vec![
+                            Node::Num { value: 1 },
+                            Node::Num { value: 2 },
+                            Node::Num { value: 3 },
+                        ],
+                    }),
+                    second: Box::new(Node::Return {
+                        expr: Box::new(Node::Deref {
+                            expr: Box::new(Node::Sub {
+                                lhs: Box::new(Node::Addr {
+                                    expr: Box::new(Node::Var { offset: 8 }),
+                                }),
+                                rhs: Box::new(Node::Mul {
+                                    lhs: Box::new(Node::Num { value: 2 }),
+                                    rhs: Box::new(Node::Num { value: 8 }),
+                                }),
+                            }),
+                        }),
+                    }),
+                }),
+            }
+        );
+    }
 }
