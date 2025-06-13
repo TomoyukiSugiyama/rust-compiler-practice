@@ -131,3 +131,42 @@ You should see:
 ```
 x = 55
 ```
+
+## Samples
+
+This compiler can compile and run sample programs like the ones shown below. Each sample demonstrates practical examples of the compiler's features.
+
+### Fibonacci
+
+This sample calculates the Fibonacci number using a recursive function. It computes `fib(10)` and returns the result (55). This sample demonstrates the features of recursive function calls and control structures (if statements).
+
+```bash
+% cd rustc
+% mkdir -p ./bin
+% cargo run -- ./sample/fibonacci.rs > ./bin/fibonacci.s
+% clang -arch arm64 -x assembler ./bin/fibonacci.s -o ./bin/fibonacci
+% ./bin/fibonacci 
+% echo $?
+55
+```
+
+### Display Othello board
+
+This sample displays the initial state of an Othello board. It uses string literals and standard output functionality to display an 8x8 board. This sample demonstrates string processing and system call features.
+
+```bash
+% cd rustc
+% mkdir -p ./bin
+% cargo run -- ./sample/display-othello-board.rs > ./bin/display-othello-board.rs
+% clang -arch arm64 -x assembler ./bin/display-othello-board.s -o ./bin/display-othello-board
+% ./bin/display-othello-board
+  A B C D E F G H
+1 ・ ・ ・ ・ ・ ・ ・ ・ 
+2 ・ ・ ・ ・ ・ ・ ・ ・ 
+3 ・ ・ ・ ・ ・ ・ ・ ・ 
+4 ・ ・ ・ ○ ● ・ ・ ・ 
+5 ・ ・ ・ ● ○ ・ ・ ・ 
+6 ・ ・ ・ ・ ・ ・ ・ ・ 
+7 ・ ・ ・ ・ ・ ・ ・ ・ 
+8 ・ ・ ・ ・ ・ ・ ・ ・
+```
