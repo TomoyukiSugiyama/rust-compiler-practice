@@ -295,6 +295,7 @@ impl IntoIterator for Token {
 mod tests {
     use super::*;
 
+    // === Whitespace & Error Tests ===
     #[test]
     fn test_tokenize_empty_or_whitespace_only() {
         let kinds: Vec<TokenKind> = tokenize("   ").into_iter().map(|tok| tok.kind).collect();
@@ -307,6 +308,7 @@ mod tests {
         let _ = tokenize("?");
     }
 
+    // === Number & Arithmetic Tests ===
     #[test]
     fn test_tokenize_numbers_and_arithmetic() {
         let head = tokenize("12 + 34 -5");
@@ -348,6 +350,7 @@ mod tests {
         );
     }
 
+    // === Identifier & Keyword Tests ===
     #[test]
     fn test_tokenize_ident() {
         let kinds: Vec<TokenKind> = tokenize("foo bar")
@@ -410,6 +413,24 @@ mod tests {
     }
 
     #[test]
+    fn test_tokenize_control_flow_keywords() {
+        let keywords = ["return", "if", "else", "while", "for", "let"];
+        let expected = [
+            TokenKind::Return,
+            TokenKind::If,
+            TokenKind::Else,
+            TokenKind::While,
+            TokenKind::For,
+            TokenKind::Let,
+        ];
+        for (i, &kw) in keywords.iter().enumerate() {
+            let kinds: Vec<TokenKind> = tokenize(kw).into_iter().map(|tok| tok.kind).collect();
+            assert_eq!(kinds, vec![expected[i].clone(), TokenKind::Eof]);
+        }
+    }
+
+    // === Function Declaration Tests ===
+    #[test]
     fn test_tokenize_fn_keyword() {
         let kinds: Vec<TokenKind> = tokenize("fn").into_iter().map(|tok| tok.kind).collect();
         assert_eq!(kinds, vec![TokenKind::Fn, TokenKind::Eof]);
@@ -440,6 +461,7 @@ mod tests {
         );
     }
 
+    // === Operator & Delimiter Tests ===
     #[test]
     fn test_tokenize_parens() {
         let kinds: Vec<TokenKind> = tokenize("(1+2)*3")
@@ -484,48 +506,24 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_comma() {
-        let kinds: Vec<TokenKind> = tokenize(",").into_iter().map(|tok| tok.kind).collect();
-        assert_eq!(kinds, vec![TokenKind::Comma, TokenKind::Eof]);
+    fn test_tokenize_ampersand_delimiter() {
+        let kinds: Vec<TokenKind> = tokenize("&").into_iter().map(|tok| tok.kind).collect();
+        assert_eq!(kinds, vec![TokenKind::Amp, TokenKind::Eof]);
     }
 
     #[test]
-    fn test_tokenize_colon() {
-        let kinds: Vec<TokenKind> = tokenize(":").into_iter().map(|tok| tok.kind).collect();
-        assert_eq!(kinds, vec![TokenKind::Colon, TokenKind::Eof]);
-    }
-
-    #[test]
-    fn test_tokenize_arrow() {
+    fn test_tokenize_arrow_delimiter() {
         let kinds: Vec<TokenKind> = tokenize("->").into_iter().map(|tok| tok.kind).collect();
         assert_eq!(kinds, vec![TokenKind::Arrow, TokenKind::Eof]);
     }
 
+    // === Operator & Delimiter Category Tests ===
     #[test]
-    fn test_tokenize_arrow_with_ident() {
-        let kinds: Vec<TokenKind> = tokenize("foo->bar")
+    fn test_tokenize_arithmetic_operators() {
+        let kinds: Vec<TokenKind> = tokenize("+ - * /")
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
-        assert_eq!(
-            kinds,
-            vec![
-                TokenKind::Ident {
-                    name: "foo".to_string()
-                },
-                TokenKind::Arrow,
-                TokenKind::Ident {
-                    name: "bar".to_string()
-                },
-                TokenKind::Eof,
-            ]
-        );
-    }
-
-    #[test]
-    fn test_tokenize_all_operators() {
-        let input = "+ - * / == != < <= > >= = ; ( ) { } return if else while for fn -> & let";
-        let kinds: Vec<TokenKind> = tokenize(input).into_iter().map(|tok| tok.kind).collect();
         assert_eq!(
             kinds,
             vec![
@@ -533,32 +531,70 @@ mod tests {
                 TokenKind::Minus,
                 TokenKind::Star,
                 TokenKind::Slash,
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_comparison_operators() {
+        let kinds: Vec<TokenKind> = tokenize("== != < <= > >=")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
                 TokenKind::EqEq,
                 TokenKind::Ne,
                 TokenKind::Lt,
                 TokenKind::Le,
                 TokenKind::Gt,
                 TokenKind::Ge,
-                TokenKind::Assign,
-                TokenKind::Semicolon,
-                TokenKind::LParen,
-                TokenKind::RParen,
-                TokenKind::LBrace,
-                TokenKind::RBrace,
-                TokenKind::Return,
-                TokenKind::If,
-                TokenKind::Else,
-                TokenKind::While,
-                TokenKind::For,
-                TokenKind::Fn,
-                TokenKind::Arrow,
-                TokenKind::Amp,
-                TokenKind::Let,
                 TokenKind::Eof,
             ]
         );
     }
 
+    #[test]
+    fn test_tokenize_assignment_and_punctuation() {
+        let kinds: Vec<TokenKind> = tokenize("= ; , :")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::Assign,
+                TokenKind::Semicolon,
+                TokenKind::Comma,
+                TokenKind::Colon,
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_grouping_and_brackets_delimiters() {
+        let kinds: Vec<TokenKind> = tokenize("( ) { } [ ]")
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                TokenKind::LParen,
+                TokenKind::RParen,
+                TokenKind::LBrace,
+                TokenKind::RBrace,
+                TokenKind::LBracket,
+                TokenKind::RBracket,
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    // === String Literal Tests ===
     #[test]
     fn test_tokenize_string() {
         let kinds: Vec<TokenKind> = tokenize(r#""Hello, world!""#)
@@ -582,15 +618,7 @@ mod tests {
         let _ = tokenize(r#""Hello, world!"#);
     }
 
-    #[test]
-    fn test_tokenize_brackets_are_recognized() {
-        let kinds: Vec<TokenKind> = tokenize("[]").into_iter().map(|tok| tok.kind).collect();
-        assert_eq!(
-            kinds,
-            vec![TokenKind::LBracket, TokenKind::RBracket, TokenKind::Eof]
-        );
-    }
-
+    // === Bracket & Indexing Tests ===
     #[test]
     fn test_tokenize_indexing_syntax() {
         let kinds: Vec<TokenKind> = tokenize("arr[123]")
