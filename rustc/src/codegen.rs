@@ -36,7 +36,7 @@ fn emit_assign(lhs: &Node, rhs: &Node) {
     println!("    ldr x1, [sp], #16");
     // determine variable offset or error
     let off = match lhs {
-        Node::Var(off) => *off,
+        Node::Var { offset } => *offset,
         other => panic!("assignment to non-variable: {:?}", other),
     };
     // store into variable slot at negative offset from frame pointer
@@ -236,8 +236,8 @@ fn emit_function(name: &String, args: &Vec<Node>, body: &Box<Node>) {
     gen_prologue(name);
     // Save arguments to local variables
     for (i, arg) in args.iter().enumerate() {
-        if let Node::Var(off) = arg {
-            println!("    str x{}, [x29, #-{}]", i, off);
+        if let Node::Var { offset } = arg {
+            println!("    str x{}, [x29, #-{}]", i, offset);
         }
     }
     gen_node(body);
@@ -255,13 +255,13 @@ fn emit_deref(node: &Node) {
 // helper to emit code for address-of
 fn emit_addr(node: &Node) {
     match node {
-        Node::Var(off) => {
+        Node::Var { offset } => {
             println!("    mov x0, x29");
-            println!("    sub x0, x0, #{}", off);
+            println!("    sub x0, x0, #{}", offset);
             println!("    str x0, [sp, #-16]!");
         }
-        Node::Deref(inner) => {
-            gen_node(inner);
+        Node::Deref { expr } => {
+            gen_node(expr);
         }
         _ => panic!("address-of not supported for {:?}", node),
     }
@@ -292,30 +292,39 @@ fn emit_string(s: &str) {
 // helper to recursively generate code for each node
 fn gen_node(node: &Node) {
     match node {
-        Node::Seq(lhs, rhs) => emit_seq(lhs, rhs),
-        Node::Function(name, args, body) => emit_function(name, args, body),
-        Node::Num(n) => push_imm(*n),
-        Node::StringSlice(s) => emit_string(s),
-        Node::Var(off) => emit_var(*off),
-        Node::Call(name, args) => emit_call(name, args),
-        Node::Syscall(name, args) => emit_syscall(name, args),
-        Node::Return(node) => emit_return(node),
-        Node::If(cond, then_stmt, else_stmt) => emit_if(cond, then_stmt, else_stmt.as_deref()),
-        Node::While(cond, body) => emit_while(cond, body),
-        Node::For(init, cond, update, body) => emit_for(init, cond, update, body),
-        Node::Assign(lhs, rhs) => emit_assign(lhs, rhs),
-        Node::Add(lhs, rhs) => emit_binop("add", lhs, rhs),
-        Node::Sub(lhs, rhs) => emit_binop("sub", lhs, rhs),
-        Node::Mul(lhs, rhs) => emit_binop("mul", lhs, rhs),
-        Node::Div(lhs, rhs) => emit_binop("sdiv", lhs, rhs),
-        Node::Eq(lhs, rhs) => emit_cmp("eq", lhs, rhs),
-        Node::Ne(lhs, rhs) => emit_cmp("ne", lhs, rhs),
-        Node::Lt(lhs, rhs) => emit_cmp("lt", lhs, rhs),
-        Node::Gt(lhs, rhs) => emit_cmp("gt", lhs, rhs),
-        Node::Le(lhs, rhs) => emit_cmp("le", lhs, rhs),
-        Node::Ge(lhs, rhs) => emit_cmp("ge", lhs, rhs),
-        Node::Deref(node) => emit_deref(node),
-        Node::Addr(node) => emit_addr(node),
+        Node::Seq { first, second } => emit_seq(first, second),
+        Node::Function { name, args, body } => emit_function(name, args, body),
+        Node::Num { value } => push_imm(*value),
+        Node::StringSlice { value } => emit_string(value),
+        Node::Var { offset } => emit_var(*offset),
+        Node::Call { name, args } => emit_call(name, args),
+        Node::Syscall { name, args } => emit_syscall(name, args),
+        Node::Return { expr } => emit_return(expr),
+        Node::If {
+            cond,
+            then_stmt,
+            else_stmt,
+        } => emit_if(cond, then_stmt, else_stmt.as_deref()),
+        Node::While { cond, body } => emit_while(cond, body),
+        Node::For {
+            init,
+            cond,
+            update,
+            body,
+        } => emit_for(init, cond, update, body),
+        Node::Assign { lhs, rhs } => emit_assign(lhs, rhs),
+        Node::Add { lhs, rhs } => emit_binop("add", lhs, rhs),
+        Node::Sub { lhs, rhs } => emit_binop("sub", lhs, rhs),
+        Node::Mul { lhs, rhs } => emit_binop("mul", lhs, rhs),
+        Node::Div { lhs, rhs } => emit_binop("sdiv", lhs, rhs),
+        Node::Eq { lhs, rhs } => emit_cmp("eq", lhs, rhs),
+        Node::Ne { lhs, rhs } => emit_cmp("ne", lhs, rhs),
+        Node::Lt { lhs, rhs } => emit_cmp("lt", lhs, rhs),
+        Node::Gt { lhs, rhs } => emit_cmp("gt", lhs, rhs),
+        Node::Le { lhs, rhs } => emit_cmp("le", lhs, rhs),
+        Node::Ge { lhs, rhs } => emit_cmp("ge", lhs, rhs),
+        Node::Deref { expr } => emit_deref(expr),
+        Node::Addr { expr } => emit_addr(expr),
     }
 }
 

@@ -6,32 +6,107 @@ use std::iter::Peekable;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Node {
     // Sequence of two statements: execute first, then second
-    Seq(Box<Node>, Box<Node>),
-    Num(u64),
-    StringSlice(String),
-    Var(u64),
-    Function(String, Vec<Node>, Box<Node>),
-    // Function call with optional arguments: name(arg1, arg2, ...)
-    Call(String, Vec<Node>),
-    // System call with arguments: syscall(name, args)
-    Syscall(String, Vec<Node>),
-    Assign(Box<Node>, Box<Node>),
-    Add(Box<Node>, Box<Node>),
-    Sub(Box<Node>, Box<Node>),
-    Mul(Box<Node>, Box<Node>),
-    Div(Box<Node>, Box<Node>),
-    Eq(Box<Node>, Box<Node>),
-    Ne(Box<Node>, Box<Node>),
-    Lt(Box<Node>, Box<Node>),
-    Gt(Box<Node>, Box<Node>),
-    Le(Box<Node>, Box<Node>),
-    Ge(Box<Node>, Box<Node>),
-    Return(Box<Node>),
-    If(Box<Node>, Box<Node>, Option<Box<Node>>),
-    While(Box<Node>, Box<Node>),
-    For(Box<Node>, Box<Node>, Box<Node>, Box<Node>),
-    Deref(Box<Node>),
-    Addr(Box<Node>),
+    Seq {
+        first: Box<Node>,
+        second: Box<Node>,
+    },
+    // Literals
+    Num {
+        value: u64,
+    },
+    StringSlice {
+        value: String,
+    },
+    // Variables and functions
+    Var {
+        offset: u64,
+    },
+    Function {
+        name: String,
+        args: Vec<Node>,
+        body: Box<Node>,
+    },
+    Call {
+        name: String,
+        args: Vec<Node>,
+    },
+    Syscall {
+        name: String,
+        args: Vec<Node>,
+    },
+    // Assignment
+    Assign {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    // Arithmetic operations
+    Add {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    Sub {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    Mul {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    Div {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    // Comparison operations
+    Eq {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    Ne {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    Lt {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    Gt {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    Le {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    Ge {
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    },
+    // Control flow
+    Return {
+        expr: Box<Node>,
+    },
+    If {
+        cond: Box<Node>,
+        then_stmt: Box<Node>,
+        else_stmt: Option<Box<Node>>,
+    },
+    While {
+        cond: Box<Node>,
+        body: Box<Node>,
+    },
+    For {
+        init: Box<Node>,
+        cond: Box<Node>,
+        update: Box<Node>,
+        body: Box<Node>,
+    },
+    // Pointer operations
+    Deref {
+        expr: Box<Node>,
+    },
+    Addr {
+        expr: Box<Node>,
+    },
 }
 
 fn expect_next(toks: &mut Peekable<TokenIter>, expected: TokenKind) -> Token {
@@ -54,7 +129,10 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let mut iter = funcs.into_iter();
     let mut root = iter.next().unwrap();
     for next in iter {
-        root = Node::Seq(Box::new(root), Box::new(next));
+        root = Node::Seq {
+            first: Box::new(root),
+            second: Box::new(next),
+        };
     }
     root
 }
@@ -107,16 +185,23 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     expect_next(toks, TokenKind::RBrace);
     // fold into a single Node, default to 0 if empty
     let body = if stmts.is_empty() {
-        Node::Num(0)
+        Node::Num { value: 0 }
     } else {
         let mut iter = stmts.into_iter();
         let mut b = iter.next().unwrap();
         for next in iter {
-            b = Node::Seq(Box::new(b), Box::new(next));
+            b = Node::Seq {
+                first: Box::new(b),
+                second: Box::new(next),
+            };
         }
         b
     };
-    Node::Function(name, args_vec, Box::new(body))
+    Node::Function {
+        name: name,
+        args: args_vec,
+        body: Box::new(body),
+    }
 }
 
 // stmt ::= expr ';' |
@@ -139,7 +224,9 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 toks.next();
                 let node = expr(toks, vars);
                 expect_next(toks, TokenKind::Semicolon);
-                return Node::Return(Box::new(node));
+                return Node::Return {
+                    expr: Box::new(node),
+                };
             }
             TokenKind::LBrace => {
                 toks.next();
@@ -158,7 +245,10 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 let mut iter = stmts.into_iter();
                 let mut root = iter.next().unwrap();
                 for next in iter {
-                    root = Node::Seq(Box::new(root), Box::new(next));
+                    root = Node::Seq {
+                        first: Box::new(root),
+                        second: Box::new(next),
+                    };
                 }
                 return root;
             }
@@ -190,7 +280,11 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 } else {
                     None
                 };
-                return Node::If(Box::new(cond), Box::new(then_stmt), else_stmt);
+                return Node::If {
+                    cond: Box::new(cond),
+                    then_stmt: Box::new(then_stmt),
+                    else_stmt: else_stmt,
+                };
             }
             TokenKind::While => {
                 // parse while statement: 'while' '(' expr ')' stmt
@@ -209,7 +303,10 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 expect_next(toks, TokenKind::RParen);
                 // parse body
                 let body = stmt(toks, vars);
-                return Node::While(Box::new(cond), Box::new(body));
+                return Node::While {
+                    cond: Box::new(cond),
+                    body: Box::new(body),
+                };
             }
             TokenKind::For => {
                 // parse for statement: 'for' '(' expr ';' expr ';' expr ')' stmt
@@ -246,12 +343,12 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 expect_next(toks, TokenKind::RParen);
                 // parse body
                 let body = stmt(toks, vars);
-                return Node::For(
-                    Box::new(init),
-                    Box::new(cond),
-                    Box::new(update),
-                    Box::new(body),
-                );
+                return Node::For {
+                    init: Box::new(init),
+                    cond: Box::new(cond),
+                    update: Box::new(update),
+                    body: Box::new(body),
+                };
             }
             TokenKind::Let => {
                 // parse let statement: 'let' ident '=' expr ';'
@@ -278,7 +375,10 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 let new_off = last + 8;
                 vars.push(name.clone(), new_off);
                 // return assignment node
-                return Node::Assign(Box::new(Node::Var(new_off)), Box::new(rhs));
+                return Node::Assign {
+                    lhs: Box::new(Node::Var { offset: new_off }),
+                    rhs: Box::new(rhs),
+                };
             }
             _ => {}
         }
@@ -302,7 +402,10 @@ fn assign(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             TokenKind::Assign => {
                 toks.next();
                 let rhs = assign(toks, vars);
-                lhs = Node::Assign(Box::new(lhs), Box::new(rhs));
+                lhs = Node::Assign {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                };
             }
             _ => {}
         }
@@ -317,11 +420,17 @@ fn equality(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         match tok.kind {
             TokenKind::EqEq => {
                 toks.next();
-                lhs = Node::Eq(Box::new(lhs), Box::new(relational(toks, vars)));
+                lhs = Node::Eq {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(relational(toks, vars)),
+                };
             }
             TokenKind::Ne => {
                 toks.next();
-                lhs = Node::Ne(Box::new(lhs), Box::new(relational(toks, vars)));
+                lhs = Node::Ne {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(relational(toks, vars)),
+                };
             }
             _ => break,
         }
@@ -336,19 +445,31 @@ fn relational(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         match tok.kind {
             TokenKind::Lt => {
                 toks.next();
-                lhs = Node::Lt(Box::new(lhs), Box::new(add(toks, vars)));
+                lhs = Node::Lt {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(add(toks, vars)),
+                };
             }
             TokenKind::Gt => {
                 toks.next();
-                lhs = Node::Gt(Box::new(lhs), Box::new(add(toks, vars)));
+                lhs = Node::Gt {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(add(toks, vars)),
+                };
             }
             TokenKind::Le => {
                 toks.next();
-                lhs = Node::Le(Box::new(lhs), Box::new(add(toks, vars)));
+                lhs = Node::Le {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(add(toks, vars)),
+                };
             }
             TokenKind::Ge => {
                 toks.next();
-                lhs = Node::Ge(Box::new(lhs), Box::new(add(toks, vars)));
+                lhs = Node::Ge {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(add(toks, vars)),
+                };
             }
             _ => break,
         }
@@ -363,11 +484,17 @@ fn add(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         match tok.kind {
             TokenKind::Plus => {
                 toks.next();
-                lhs = Node::Add(Box::new(lhs), Box::new(mul(toks, vars)));
+                lhs = Node::Add {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(mul(toks, vars)),
+                };
             }
             TokenKind::Minus => {
                 toks.next();
-                lhs = Node::Sub(Box::new(lhs), Box::new(mul(toks, vars)));
+                lhs = Node::Sub {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(mul(toks, vars)),
+                };
             }
             _ => break,
         }
@@ -382,11 +509,17 @@ fn mul(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         match tok.kind {
             TokenKind::Star => {
                 toks.next();
-                lhs = Node::Mul(Box::new(lhs), Box::new(unary(toks, vars)));
+                lhs = Node::Mul {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(unary(toks, vars)),
+                };
             }
             TokenKind::Slash => {
                 toks.next();
-                lhs = Node::Div(Box::new(lhs), Box::new(unary(toks, vars)));
+                lhs = Node::Div {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(unary(toks, vars)),
+                };
             }
             _ => break,
         }
@@ -404,15 +537,22 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             }
             TokenKind::Minus => {
                 toks.next();
-                return Node::Sub(Box::new(Node::Num(0)), Box::new(primary(toks, vars)));
+                return Node::Sub {
+                    lhs: Box::new(Node::Num { value: 0 }),
+                    rhs: Box::new(primary(toks, vars)),
+                };
             }
             TokenKind::Star => {
                 toks.next();
-                return Node::Deref(Box::new(unary(toks, vars)));
+                return Node::Deref {
+                    expr: Box::new(unary(toks, vars)),
+                };
             }
             TokenKind::Amp => {
                 toks.next();
-                return Node::Addr(Box::new(unary(toks, vars)));
+                return Node::Addr {
+                    expr: Box::new(unary(toks, vars)),
+                };
             }
             _ => {}
         }
@@ -427,8 +567,8 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let tok = toks.next().unwrap();
     match tok.kind {
-        TokenKind::Number { num } => Node::Num(num),
-        TokenKind::String { value } => Node::StringSlice(value),
+        TokenKind::Number { num } => Node::Num { value: num },
+        TokenKind::String { value } => Node::StringSlice { value },
         TokenKind::LParen => {
             // Parse sub-expression
             let node = expr(toks, vars);
@@ -455,9 +595,15 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                     expect_next(toks, TokenKind::RParen);
                     // Special handling for write as a system call
                     if name == "write" {
-                        return Node::Syscall("write".to_string(), args_vec);
+                        return Node::Syscall {
+                            name: "write".to_string(),
+                            args: args_vec,
+                        };
                     }
-                    return Node::Call(name, args_vec);
+                    return Node::Call {
+                        name,
+                        args: args_vec,
+                    };
                 }
             }
             // variable
@@ -469,7 +615,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 vars.push(name.clone(), new_off);
                 new_off
             };
-            Node::Var(offset)
+            Node::Var { offset }
         }
         _ => error_tok(&tok, &format!("unexpected token: {:?}", tok.kind)),
     }
@@ -501,7 +647,7 @@ fn function_args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Nod
             new_off
         };
         // represent parameter as a Var node
-        args.push(Node::Var(off));
+        args.push(Node::Var { offset: off });
         // if a comma follows, consume it and continue parsing
         if let Some(peek) = toks.peek() {
             if peek.kind == TokenKind::Comma {
@@ -549,7 +695,11 @@ mod tests {
         let node = program(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Function("main".to_string(), vec![], Box::new(Node::Num(42)))
+            Node::Function {
+                name: "main".to_string(),
+                args: vec![],
+                body: Box::new(Node::Num { value: 42 }),
+            }
         );
     }
 
@@ -562,18 +712,18 @@ mod tests {
         let node = program(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Seq(
-                Box::new(Node::Function(
-                    "main".to_string(),
-                    vec![],
-                    Box::new(Node::Num(1))
-                )),
-                Box::new(Node::Function(
-                    "foo".to_string(),
-                    vec![],
-                    Box::new(Node::Num(2))
-                ))
-            )
+            Node::Seq {
+                first: Box::new(Node::Function {
+                    name: "main".to_string(),
+                    args: vec![],
+                    body: Box::new(Node::Num { value: 1 }),
+                }),
+                second: Box::new(Node::Function {
+                    name: "foo".to_string(),
+                    args: vec![],
+                    body: Box::new(Node::Num { value: 2 }),
+                }),
+            }
         );
     }
 
@@ -584,11 +734,13 @@ mod tests {
         let node = program(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Function(
-                "main".to_string(),
-                vec![],
-                Box::new(Node::Return(Box::new(Node::Num(3))))
-            )
+            Node::Function {
+                name: "main".to_string(),
+                args: vec![],
+                body: Box::new(Node::Return {
+                    expr: Box::new(Node::Num { value: 3 }),
+                }),
+            }
         );
     }
 
@@ -601,18 +753,20 @@ mod tests {
         let node = program(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Seq(
-                Box::new(Node::Function(
-                    "mainA".to_string(),
-                    vec![],
-                    Box::new(Node::Num(1))
-                )),
-                Box::new(Node::Function(
-                    "mainB".to_string(),
-                    vec![],
-                    Box::new(Node::Return(Box::new(Node::Num(2))))
-                ))
-            )
+            Node::Seq {
+                first: Box::new(Node::Function {
+                    name: "mainA".to_string(),
+                    args: vec![],
+                    body: Box::new(Node::Num { value: 1 }),
+                }),
+                second: Box::new(Node::Function {
+                    name: "mainB".to_string(),
+                    args: vec![],
+                    body: Box::new(Node::Return {
+                        expr: Box::new(Node::Num { value: 2 }),
+                    }),
+                }),
+            }
         );
     }
 
@@ -681,7 +835,11 @@ mod tests {
         let node = stmt(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::If(Box::new(Node::Num(1)), Box::new(Node::Num(2)), None)
+            Node::If {
+                cond: Box::new(Node::Num { value: 1 }),
+                then_stmt: Box::new(Node::Num { value: 2 }),
+                else_stmt: None,
+            }
         );
     }
 
@@ -692,11 +850,11 @@ mod tests {
         let node = stmt(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::If(
-                Box::new(Node::Num(1)),
-                Box::new(Node::Num(2)),
-                Some(Box::new(Node::Num(3)))
-            )
+            Node::If {
+                cond: Box::new(Node::Num { value: 1 }),
+                then_stmt: Box::new(Node::Num { value: 2 }),
+                else_stmt: Some(Box::new(Node::Num { value: 3 })),
+            }
         );
     }
 
@@ -741,7 +899,10 @@ mod tests {
         let node = stmt(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::While(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+            Node::While {
+                cond: Box::new(Node::Num { value: 1 }),
+                body: Box::new(Node::Num { value: 2 }),
+            }
         );
     }
 
@@ -786,12 +947,12 @@ mod tests {
         let node = stmt(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::For(
-                Box::new(Node::Num(1)),
-                Box::new(Node::Num(2)),
-                Box::new(Node::Num(3)),
-                Box::new(Node::Num(4)),
-            )
+            Node::For {
+                init: Box::new(Node::Num { value: 1 }),
+                cond: Box::new(Node::Num { value: 2 }),
+                update: Box::new(Node::Num { value: 3 }),
+                body: Box::new(Node::Num { value: 4 }),
+            }
         );
     }
 
@@ -866,7 +1027,7 @@ mod tests {
         let mut iter = tokenize("42").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = primary(&mut iter, &mut vars);
-        assert_eq!(node, Node::Num(42));
+        assert_eq!(node, Node::Num { value: 42 });
     }
 
     #[test]
@@ -876,7 +1037,10 @@ mod tests {
         let node = expr(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Add(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+            Node::Add {
+                lhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 2 }),
+            }
         );
     }
 
@@ -885,10 +1049,13 @@ mod tests {
         let mut iter = tokenize("1+2*3").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = expr(&mut iter, &mut vars);
-        let expected = Node::Add(
-            Box::new(Node::Num(1)),
-            Box::new(Node::Mul(Box::new(Node::Num(2)), Box::new(Node::Num(3)))),
-        );
+        let expected = Node::Add {
+            lhs: Box::new(Node::Num { value: 1 }),
+            rhs: Box::new(Node::Mul {
+                lhs: Box::new(Node::Num { value: 2 }),
+                rhs: Box::new(Node::Num { value: 3 }),
+            }),
+        };
         assert_eq!(node, expected);
     }
 
@@ -897,10 +1064,13 @@ mod tests {
         let mut iter = tokenize("(1+2)*3").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = expr(&mut iter, &mut vars);
-        let expected = Node::Mul(
-            Box::new(Node::Add(Box::new(Node::Num(1)), Box::new(Node::Num(2)))),
-            Box::new(Node::Num(3)),
-        );
+        let expected = Node::Mul {
+            lhs: Box::new(Node::Add {
+                lhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 2 }),
+            }),
+            rhs: Box::new(Node::Num { value: 3 }),
+        };
         assert_eq!(node, expected);
     }
 
@@ -909,7 +1079,7 @@ mod tests {
         let mut iter = tokenize("(42)").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = primary(&mut iter, &mut vars);
-        assert_eq!(node, Node::Num(42));
+        assert_eq!(node, Node::Num { value: 42 });
     }
 
     #[test]
@@ -919,7 +1089,10 @@ mod tests {
         let node = expr(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Add(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+            Node::Add {
+                lhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 2 }),
+            }
         );
     }
 
@@ -930,7 +1103,10 @@ mod tests {
         let node = expr(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Assign(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+            Node::Assign {
+                lhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 2 }),
+            }
         );
     }
 
@@ -939,11 +1115,23 @@ mod tests {
         let mut it1 = tokenize("1==2").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let n1 = expr(&mut it1, &mut vars);
-        assert_eq!(n1, Node::Eq(Box::new(Node::Num(1)), Box::new(Node::Num(2))));
+        assert_eq!(
+            n1,
+            Node::Eq {
+                lhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 2 }),
+            }
+        );
         let mut it2 = tokenize("1!=2").into_iter().peekable();
         let mut vars2 = Variable::new("".to_string(), 0, None);
         let n2 = expr(&mut it2, &mut vars2);
-        assert_eq!(n2, Node::Ne(Box::new(Node::Num(1)), Box::new(Node::Num(2))));
+        assert_eq!(
+            n2,
+            Node::Ne {
+                lhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 2 }),
+            }
+        );
     }
 
     #[test]
@@ -952,25 +1140,37 @@ mod tests {
         let mut it_lt = tokenize("1<2").into_iter().peekable();
         assert_eq!(
             expr(&mut it_lt, &mut vars),
-            Node::Lt(Box::new(Node::Num(1)), Box::new(Node::Num(2)))
+            Node::Lt {
+                lhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 2 }),
+            }
         );
         let mut vars2 = Variable::new("".to_string(), 0, None);
         let mut it_gt = tokenize("2>1").into_iter().peekable();
         assert_eq!(
             expr(&mut it_gt, &mut vars2),
-            Node::Gt(Box::new(Node::Num(2)), Box::new(Node::Num(1)))
+            Node::Gt {
+                lhs: Box::new(Node::Num { value: 2 }),
+                rhs: Box::new(Node::Num { value: 1 }),
+            }
         );
         let mut vars3 = Variable::new("".to_string(), 0, None);
         let mut it_le = tokenize("1<=1").into_iter().peekable();
         assert_eq!(
             expr(&mut it_le, &mut vars3),
-            Node::Le(Box::new(Node::Num(1)), Box::new(Node::Num(1)))
+            Node::Le {
+                lhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 1 }),
+            }
         );
         let mut vars4 = Variable::new("".to_string(), 0, None);
         let mut it_ge = tokenize("2>=2").into_iter().peekable();
         assert_eq!(
             expr(&mut it_ge, &mut vars4),
-            Node::Ge(Box::new(Node::Num(2)), Box::new(Node::Num(2)))
+            Node::Ge {
+                lhs: Box::new(Node::Num { value: 2 }),
+                rhs: Box::new(Node::Num { value: 2 }),
+            }
         );
     }
 
@@ -979,7 +1179,7 @@ mod tests {
         let mut iter = tokenize("a").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = primary(&mut iter, &mut vars);
-        assert_eq!(node, Node::Var(8));
+        assert_eq!(node, Node::Var { offset: 8 });
     }
 
     #[test]
@@ -988,8 +1188,8 @@ mod tests {
         let mut vars = Variable::new("".to_string(), 0, None);
         let first = primary(&mut iter, &mut vars);
         let second = primary(&mut iter, &mut vars);
-        assert_eq!(first, Node::Var(8));
-        assert_eq!(second, Node::Var(8));
+        assert_eq!(first, Node::Var { offset: 8 });
+        assert_eq!(second, Node::Var { offset: 8 });
     }
 
     #[test]
@@ -999,7 +1199,10 @@ mod tests {
         let node = expr(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Assign(Box::new(Node::Var(8)), Box::new(Node::Num(1)))
+            Node::Assign {
+                lhs: Box::new(Node::Var { offset: 8 }),
+                rhs: Box::new(Node::Num { value: 1 }),
+            }
         );
     }
 
@@ -1009,7 +1212,10 @@ mod tests {
         let mut vars = Variable::new("".to_string(), 0, None);
         assert_eq!(
             primary(&mut iter, &mut vars),
-            Node::Call("foo".to_string(), vec![])
+            Node::Call {
+                name: "foo".to_string(),
+                args: vec![],
+            }
         );
     }
 
@@ -1019,7 +1225,10 @@ mod tests {
         let mut vars = Variable::new("".to_string(), 0, None);
         assert_eq!(
             primary(&mut iter, &mut vars),
-            Node::Call("foo".to_string(), vec![Node::Num(42)])
+            Node::Call {
+                name: "foo".to_string(),
+                args: vec![Node::Num { value: 42 }],
+            }
         );
     }
 
@@ -1029,7 +1238,10 @@ mod tests {
         let mut vars = Variable::new("".to_string(), 0, None);
         assert_eq!(
             primary(&mut iter, &mut vars),
-            Node::Call("foo".to_string(), vec![Node::Num(1), Node::Num(2)])
+            Node::Call {
+                name: "foo".to_string(),
+                args: vec![Node::Num { value: 1 }, Node::Num { value: 2 }],
+            }
         );
     }
 
@@ -1055,7 +1267,7 @@ mod tests {
         let mut iter = tokenize("+42").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = expr(&mut iter, &mut vars);
-        assert_eq!(node, Node::Num(42));
+        assert_eq!(node, Node::Num { value: 42 });
     }
 
     #[test]
@@ -1065,7 +1277,10 @@ mod tests {
         let node = expr(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Sub(Box::new(Node::Num(0)), Box::new(Node::Num(42)))
+            Node::Sub {
+                lhs: Box::new(Node::Num { value: 0 }),
+                rhs: Box::new(Node::Num { value: 42 }),
+            }
         );
     }
 
@@ -1074,7 +1289,12 @@ mod tests {
         let mut iter = tokenize("*42").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = expr(&mut iter, &mut vars);
-        assert_eq!(node, Node::Deref(Box::new(Node::Num(42))));
+        assert_eq!(
+            node,
+            Node::Deref {
+                expr: Box::new(Node::Num { value: 42 }),
+            }
+        );
     }
 
     #[test]
@@ -1082,7 +1302,12 @@ mod tests {
         let mut iter = tokenize("&42").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = expr(&mut iter, &mut vars);
-        assert_eq!(node, Node::Addr(Box::new(Node::Num(42))));
+        assert_eq!(
+            node,
+            Node::Addr {
+                expr: Box::new(Node::Num { value: 42 }),
+            }
+        );
     }
 
     #[test]
@@ -1090,6 +1315,11 @@ mod tests {
         let mut iter = tokenize(r#""Hello, world!""#).into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = primary(&mut iter, &mut vars);
-        assert_eq!(node, Node::StringSlice("Hello, world!".to_string()));
+        assert_eq!(
+            node,
+            Node::StringSlice {
+                value: "Hello, world!".to_string()
+            }
+        );
     }
 }
