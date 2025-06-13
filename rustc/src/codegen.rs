@@ -184,7 +184,13 @@ fn emit_call(name: &String, args: &[Node]) {
     if name == "write" {
         emit_print_string();
     } else {
+        // Save caller-saved registers
+        println!("    stp x29, x30, [sp, #-16]!");
         println!("    bl _{}", name);
+        // Restore caller-saved registers
+        println!("    ldp x29, x30, [sp], #16");
+        // Push return value onto stack
+        println!("    str x0, [sp, #-16]!");
     }
 }
 
@@ -212,8 +218,11 @@ fn gen_epilogue() {
 // helper to emit code for function definitions
 fn emit_function(name: &String, args: &Vec<Node>, body: &Box<Node>) {
     gen_prologue(name);
-    for arg in args {
-        gen_node(arg);
+    // Save arguments to local variables
+    for (i, arg) in args.iter().enumerate() {
+        if let Node::Var(off) = arg {
+            println!("    str x{}, [x29, #-{}]", i, off);
+        }
     }
     gen_node(body);
     gen_epilogue();
