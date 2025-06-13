@@ -149,6 +149,27 @@ fn emit_for(init: &Node, cond: &Node, update: &Node, body: &Node) {
     println!("{}:", end_label);
 }
 
+// helper to emit code for printing strings
+fn emit_print_string() {
+        // For print function, we need to handle string arguments specially
+        println!("    str x0, [x29, #-8]"); // Save string address in local variable
+        println!("    mov x0, #1"); // stdout file descriptor
+        println!("    ldr x1, [x29, #-8]"); // Load string address
+        println!("    mov x2, #0"); // Initialize length counter
+        println!("    mov x3, x1"); // Copy string address to x3
+        println!("1:"); // Label for loop start
+        println!("    ldrb w4, [x3], #1"); // Load byte and increment pointer
+        println!("    cbz w4, 2f"); // If zero (null terminator), exit loop
+        println!("    add x2, x2, #1"); // Increment length counter
+        println!("    b 1b"); // Branch back to loop start
+        println!("2:"); // Label for loop end
+        println!("    movz x16, #0x0004, lsl #0"); // Set lower 16 bits
+        println!("    movk x16, #0x2000, lsl #16"); // Set upper 16 bits
+        println!("    svc #0x80"); // System call
+        println!("    ldr x0, [x29, #-8]"); // Restore original string address
+        println!("    str x0, [sp, #-16]!"); // Push back onto stack
+}
+
 // helper to emit code for function call statements with arguments
 fn emit_call(name: &String, args: &[Node]) {
     // evaluate arguments and push onto stack
@@ -160,9 +181,11 @@ fn emit_call(name: &String, args: &[Node]) {
         println!("    ldr x{}, [sp], #16", i);
     }
     // call external function (prepend underscore)
-    println!("    bl _{}", name);
-    // push return value onto stack
-    println!("    str x0, [sp, #-16]!");
+    if name == "print" {
+        emit_print_string();
+    } else {
+        println!("    bl _{}", name);
+    }
 }
 
 fn gen_prologue(name: &String) {
