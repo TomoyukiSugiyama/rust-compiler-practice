@@ -1,4 +1,4 @@
 fn main() {
-    let num = "Hello, world!";
-    write(num);
+    let str = "Hello, world!";
+    write(str);
 }
