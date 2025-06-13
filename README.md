@@ -16,10 +16,16 @@ A simple Rust-like compiler implemented in Rust for learning compiler constructi
 - Control flow: `if-else`, `for` and `while` loops
 - Function definitions and calls, including recursion and parameters
 - Memory operations: references (`&`) and dereferences (`*`)
+- String literals with double quotes (`"..."`)
+- System call support for writing to standard output without libc dependency
 
 ## Development Aids
 
 - Debugging via external function calls (`debug1`, `debug2`, ...)
+- Integration test framework with:
+  - Return value verification
+  - Standard output verification
+  - Parallel test execution (default: 10 threads)
 
 ## Tests
 
@@ -31,6 +37,13 @@ A simple Rust-like compiler implemented in Rust for learning compiler constructi
 ```
 
 ### Integration Tests
+
+```bash
+% cd rustc
+% cargo run --bin test-runner [parallel_degree]
+```
+
+The integration tests can be run in parallel, with a default of 10 threads. You can specify a different number of threads as an argument to the test runner.
 
 ```bash
 % cd rustc
