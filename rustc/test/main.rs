@@ -7,43 +7,48 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 fn main() {
-    let tests: &[(i8, &str)] = &[
-        (12, "./test/assets/number.rs"),
-        (3, "./test/assets/addition.rs"),
-        (1, "./test/assets/subtraction.rs"),
-        (48, "./test/assets/addition-and-subtraction.rs"),
-        (4, "./test/assets/whitespace.rs"),
-        (7, "./test/assets/multiplication.rs"),
-        (4, "./test/assets/division.rs"),
-        (9, "./test/assets/parentheses.rs"),
-        (-3, "./test/assets/unary-minus.rs"),
-        (-8, "./test/assets/unary-neg-parens.rs"),
-        (-15, "./test/assets/unary-mixed.rs"),
-        (1, "./test/assets/eq-true.rs"),
-        (0, "./test/assets/eq-false.rs"),
-        (0, "./test/assets/lt-false.rs"),
-        (1, "./test/assets/lt-true.rs"),
-        (0, "./test/assets/gt-false.rs"),
-        (1, "./test/assets/gt-true.rs"),
-        (0, "./test/assets/le-false.rs"),
-        (1, "./test/assets/le-true.rs"),
-        (0, "./test/assets/ge-false.rs"),
-        (1, "./test/assets/ge-true.rs"),
-        (3, "./test/assets/assign-simple.rs"),
-        (3, "./test/assets/assign-multi.rs"),
-        (3, "./test/assets/return-stmt.rs"),
-        (6, "./test/assets/assign-vars.rs"),
-        (3, "./test/assets/if-else-true.rs"),
-        (2, "./test/assets/if-else-false.rs"),
-        (10, "./test/assets/while-loop.rs"),
-        (10, "./test/assets/for-loop.rs"),
-        (4, "./test/assets/nested-loop.rs"),
-        (5, "./test/assets/func-call.rs"),
-        (55, "./test/assets/fibonacci-allow-warnings.rs"),
-        (3, "./test/assets/deref.rs"),
-        (10, "./test/assets/local-var.rs"),
-        (10, "./test/assets/comments.rs"),
-        (0, "./test/assets/string.rs"),
+    let tests: &[(i8, &str, Option<&str>)] = &[
+        (12, "./test/assets/number.rs", None),
+        (3, "./test/assets/addition.rs", None),
+        (1, "./test/assets/subtraction.rs", None),
+        (48, "./test/assets/addition-and-subtraction.rs", None),
+        (4, "./test/assets/whitespace.rs", None),
+        (7, "./test/assets/multiplication.rs", None),
+        (4, "./test/assets/division.rs", None),
+        (9, "./test/assets/parentheses.rs", None),
+        (-3, "./test/assets/unary-minus.rs", None),
+        (-8, "./test/assets/unary-neg-parens.rs", None),
+        (-15, "./test/assets/unary-mixed.rs", None),
+        (1, "./test/assets/eq-true.rs", None),
+        (0, "./test/assets/eq-false.rs", None),
+        (0, "./test/assets/lt-false.rs", None),
+        (1, "./test/assets/lt-true.rs", None),
+        (0, "./test/assets/gt-false.rs", None),
+        (1, "./test/assets/gt-true.rs", None),
+        (0, "./test/assets/le-false.rs", None),
+        (1, "./test/assets/le-true.rs", None),
+        (0, "./test/assets/ge-false.rs", None),
+        (1, "./test/assets/ge-true.rs", None),
+        (3, "./test/assets/assign-simple.rs", None),
+        (3, "./test/assets/assign-multi.rs", None),
+        (3, "./test/assets/return-stmt.rs", None),
+        (6, "./test/assets/assign-vars.rs", None),
+        (3, "./test/assets/if-else-true.rs", None),
+        (2, "./test/assets/if-else-false.rs", None),
+        (10, "./test/assets/while-loop.rs", None),
+        (10, "./test/assets/for-loop.rs", None),
+        (4, "./test/assets/nested-loop.rs", None),
+        (5, "./test/assets/func-call.rs", None),
+        (55, "./test/assets/fibonacci-allow-warnings.rs", None),
+        (3, "./test/assets/deref.rs", None),
+        (10, "./test/assets/local-var.rs", None),
+        (10, "./test/assets/comments.rs", None),
+        (0, "./test/assets/string.rs", None),
+        (
+            0,
+            "./test/assets/systemcall-write.rs",
+            Some("Hello, \nworld!\n"),
+        ),
     ];
 
     fs::create_dir_all("bin").unwrap_or_else(|e| {
@@ -76,17 +81,18 @@ fn main() {
     let rustc_bin = Arc::new(rustc_path);
 
     let (tx, rx) = mpsc::channel();
-    for &(expected, input) in tests {
-        tx.send((expected, input)).unwrap_or_else(|e| {
-            eprintln!("failed to send test to channel: {}", e);
-            exit(1);
-        });
+    for &(expected, input, expected_output) in tests {
+        tx.send((expected, input, expected_output))
+            .unwrap_or_else(|e| {
+                eprintln!("failed to send test to channel: {}", e);
+                exit(1);
+            });
     }
     drop(tx);
     let rx = Arc::new(Mutex::new(rx));
 
     // Channel for structured test results
-    let (tx_res, rx_res) = mpsc::channel::<(String, i8, i8, Duration, bool)>();
+    let (tx_res, rx_res) = mpsc::channel::<(String, i8, i8, Duration, bool, Option<String>)>();
 
     let mut handles = Vec::new();
     for _ in 0..parallel {
@@ -96,7 +102,7 @@ fn main() {
         let handle = thread::spawn(move || {
             loop {
                 // receive one task under lock, then drop the lock before processing
-                let (expected, input) = {
+                let (expected, input, expected_output) = {
                     let guard = rx.lock().unwrap();
                     match guard.recv() {
                         Ok(pair) => pair,
@@ -129,7 +135,7 @@ fn main() {
                     // report generation failure and continue
                     let duration = start.elapsed();
                     tx_res
-                        .send((input.to_string(), expected, 0, duration, false))
+                        .send((input.to_string(), expected, 0, duration, false, None))
                         .unwrap();
                     // indicate failure
                     print!("F");
@@ -155,7 +161,7 @@ fn main() {
                     // report assembly failure and continue
                     let duration = start.elapsed();
                     tx_res
-                        .send((input.to_string(), expected, 0, duration, false))
+                        .send((input.to_string(), expected, 0, duration, false, None))
                         .unwrap();
                     // indicate failure
                     print!("F");
@@ -164,21 +170,54 @@ fn main() {
                 }
 
                 // Run binary
-                let run_status = Command::new(&bin_path).status().unwrap_or_else(|e| {
+                let output = Command::new(&bin_path).output().unwrap_or_else(|e| {
                     eprintln!("failed to run binary: {}", e);
                     exit(1);
                 });
-                let code = run_status.code().unwrap_or_else(|| {
-                    eprintln!("{} => process terminated by signal", input);
-                    exit(1);
-                });
-                let actual = code as u8 as i8;
+
+                let (success, failure_info) = if let Some(expected_output) = expected_output {
+                    // Check stdout output
+                    let actual_output = String::from_utf8_lossy(&output.stdout);
+                    let success = actual_output == expected_output;
+                    let failure_info = if !success {
+                        Some(format!(
+                            "Test failed: {}\nExpected output: {:?}\nActual output:   {:?}",
+                            input, expected_output, actual_output
+                        ))
+                    } else {
+                        None
+                    };
+                    (success, failure_info)
+                } else {
+                    // Check exit code
+                    let code = output.status.code().unwrap_or_else(|| {
+                        eprintln!("{} => process terminated by signal", input);
+                        exit(1);
+                    });
+                    let actual = code as u8 as i8;
+                    let success = actual == expected;
+                    let failure_info = if !success {
+                        Some(format!(
+                            "Test failed: {}\nExpected return code: {}\nActual return code: {}",
+                            input, expected, actual
+                        ))
+                    } else {
+                        None
+                    };
+                    (success, failure_info)
+                };
 
                 // send structured result for summary
-                let success = actual == expected;
                 let duration = start.elapsed();
                 tx_res
-                    .send((input.to_string(), expected, actual, duration, success))
+                    .send((
+                        input.to_string(),
+                        expected,
+                        0,
+                        duration,
+                        success,
+                        failure_info,
+                    ))
                     .unwrap();
                 // simple progress indicator: '.' for success, 'F' for failure
                 if success {
@@ -207,7 +246,7 @@ fn main() {
         "{:<30} {:<6} {:<8} {:<8} {}",
         "Test", "Result", "Expected", "Got", "Time"
     );
-    for (name, expected, actual, duration, success) in &results {
+    for (name, expected, actual, duration, success, _) in &results {
         println!(
             "{:<30} {:<6} {:<8} {:<8} {:?}",
             name,
@@ -217,8 +256,21 @@ fn main() {
             duration
         );
     }
+
+    // Print failure details at the end
+    let failures: Vec<_> = results
+        .iter()
+        .filter_map(|(_, _, _, _, _, failure_info)| failure_info.as_ref())
+        .collect();
+    if !failures.is_empty() {
+        println!("\nFailure details:");
+        for failure in failures {
+            println!("{}", failure);
+        }
+    }
+
     // Exit with error if any failed
-    if results.iter().any(|(_, _, _, _, success)| !success) {
+    if results.iter().any(|(_, _, _, _, success, _)| !success) {
         exit(1);
     } else {
         println!("OK");
