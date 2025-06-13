@@ -40,7 +40,7 @@ fn main() {
         (4, "./test/assets/nested-loop.rs", None),
         (5, "./test/assets/func-call.rs", None),
         (55, "./test/assets/fibonacci-allow-warnings.rs", None),
-        (3, "./test/assets/deref.rs", None),
+        (3, "./test/assets/reference-and-dereference.rs", None),
         (10, "./test/assets/local-var.rs", None),
         (10, "./test/assets/comments.rs", None),
         (0, "./test/assets/string.rs", None),
