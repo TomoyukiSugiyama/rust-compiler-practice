@@ -52,6 +52,7 @@ fn main() {
             Some("Hello, \nworld!\n"),
         ),
         (3, "./test/assets/array.rs", None),
+        (15, "./test/assets/array-sum.rs", None),
     ];
 
     fs::create_dir_all("bin").unwrap_or_else(|e| {
