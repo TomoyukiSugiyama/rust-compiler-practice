@@ -35,6 +35,7 @@ fn main() {
         (3, "./test/assets/assign-multi.rs", None),
         (3, "./test/assets/return-stmt.rs", None),
         (6, "./test/assets/assign-vars.rs", None),
+        (2, "./test/assets/if-multi.rs", None),
         (3, "./test/assets/if-else-true.rs", None),
         (2, "./test/assets/if-else-false.rs", None),
         (10, "./test/assets/while-loop.rs", None),
