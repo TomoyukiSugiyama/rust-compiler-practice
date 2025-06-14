@@ -39,6 +39,7 @@ fn main() {
         (2, "./test/assets/if-else-false.rs", None),
         (10, "./test/assets/while-loop.rs", None),
         (10, "./test/assets/for-loop.rs", None),
+        (60, "./test/assets/for-loop-multi.rs", None),
         (4, "./test/assets/nested-loop.rs", None),
         (5, "./test/assets/func-call.rs", None),
         (55, "./test/assets/fibonacci-allow-warnings.rs", None),
