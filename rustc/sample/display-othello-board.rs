@@ -1,25 +1,49 @@
-fn displayboard() {
-    // 列のヘッダーを表示
-    write("  A B C D E F G H\n");
+fn displayboard() -> i32 {
+    let board = [
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,1,2,0,0,0,
+        0,0,0,2,1,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0
+    ];
+    let indexlist = [
+        "1", "2", "3", "4", "5", "6", "7", "8"
+    ];
 
-    // 1行目
-    write("1 ・ ・ ・ ・ ・ ・ ・ ・ \n");
-    // 2行目
-    write("2 ・ ・ ・ ・ ・ ・ ・ ・ \n");
-    // 3行目
-    write("3 ・ ・ ・ ・ ・ ・ ・ ・ \n");
-    // 4行目（初期配置）
-    write("4 ・ ・ ・ ○ ● ・ ・ ・ \n");
-    // 5行目（初期配置）
-    write("5 ・ ・ ・ ● ○ ・ ・ ・ \n");
-    // 6行目
-    write("6 ・ ・ ・ ・ ・ ・ ・ ・ \n");
-    // 7行目
-    write("7 ・ ・ ・ ・ ・ ・ ・ ・ \n");
-    // 8行目
-    write("8 ・ ・ ・ ・ ・ ・ ・ ・ \n");
+    write("  A  B  C  D  E  F  G  H\n");
+    let idx = 0;
+    let cell = 0;
+    for ( i=0; i<8; i=i+1 ) {
+        write(indexlist[i]);
+        write(" ");
+        for ( j=0; j<8; j=j+1 ) {
+            idx = i*8+j;
+            cell = board[idx];
+
+            if ( cell==0 ) {
+                write("・");
+            }
+            if ( cell==1 ) {
+                write("○ ");
+            }
+            if ( cell==2 ) {
+                write("● ");
+            }
+            if ( j<7 ) {
+                write(" ");
+            }
+        }
+        write("\n");
+    }
+    return 0;
 }
 
 fn main() {
+
     displayboard();
+
+    return 0;
 }
