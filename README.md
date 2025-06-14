@@ -152,7 +152,7 @@ This sample calculates the Fibonacci number using a recursive function. It compu
 
 ### Display Othello board
 
-This sample displays the initial state of an Othello board. It uses string literals and standard output functionality to display an 8x8 board. This sample demonstrates string processing and system call features.
+This sample displays the initial state of an Othello board using an array literal to represent piece codes and a string array for row labels. It demonstrates array literals, string array indexing, for loops (with initialization, condition, and increment expressions), nested loops, arithmetic operations and index access, conditional statements, and the `write` system call for output.
 
 ```bash
 % cd rustc
@@ -160,13 +160,13 @@ This sample displays the initial state of an Othello board. It uses string liter
 % cargo run -- ./sample/display-othello-board.rs > ./bin/display-othello-board.s
 % clang -arch arm64 -x assembler ./bin/display-othello-board.s -o ./bin/display-othello-board
 % ./bin/display-othello-board
-  A B C D E F G H
-1 ・ ・ ・ ・ ・ ・ ・ ・ 
-2 ・ ・ ・ ・ ・ ・ ・ ・ 
-3 ・ ・ ・ ・ ・ ・ ・ ・ 
-4 ・ ・ ・ ○ ● ・ ・ ・ 
-5 ・ ・ ・ ● ○ ・ ・ ・ 
-6 ・ ・ ・ ・ ・ ・ ・ ・ 
-7 ・ ・ ・ ・ ・ ・ ・ ・ 
+  A  B  C  D  E  F  G  H
+1 ・ ・ ・ ・ ・ ・ ・ ・
+2 ・ ・ ・ ・ ・ ・ ・ ・
+3 ・ ・ ・ ・ ・ ・ ・ ・
+4 ・ ・ ・ ○  ●  ・ ・ ・
+5 ・ ・ ・ ●  ○  ・ ・ ・
+6 ・ ・ ・ ・ ・ ・ ・ ・
+7 ・ ・ ・ ・ ・ ・ ・ ・
 8 ・ ・ ・ ・ ・ ・ ・ ・
 ```
