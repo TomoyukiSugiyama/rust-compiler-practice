@@ -1,3 +1,15 @@
+// This program is a sample code that can be compiled by a custom compiler.
+// Displays the initial Othello board.
+// A sample program to display an 8x8 board.
+// Implements the following features:
+// - Support for array literals
+// - Support for string literals
+// - For loops with initialization, condition, and increment expressions
+// - Arithmetic operations and index access
+// - Function definitions and return values
+// - Writing to standard output (write function)
+//
+
 fn displayboard() -> i32 {
     let board = [
         0,0,0,0,0,0,0,0,
