@@ -39,16 +39,20 @@ fn emit_assign(lhs: &Node, rhs: &Node) {
         Node::Var { offset } => *offset,
         other => panic!("assignment to non-variable: {:?}", other),
     };
-    // store into variable slot at negative offset from frame pointer
-    println!("    str x1, [x29, #-{}]", off);
+    // store into variable slot via register-based addressing (handles large offsets)
+    println!("    mov x2, x29");
+    println!("    sub x2, x2, #{}", off);
+    println!("    str x1, [x2]");
     // push assigned value back onto stack
     println!("    str x1, [sp, #-16]!");
 }
 
 // helper to emit code for variable load
 fn emit_var(off: u64) {
-    // load variable from frame pointer
-    println!("    ldr x0, [x29, #-{}]", off);
+    // load variable via register-based addressing (handles large offsets)
+    println!("    mov x2, x29");
+    println!("    sub x2, x2, #{}", off);
+    println!("    ldr x0, [x2]");
     // push loaded value onto stack
     println!("    str x0, [sp, #-16]!");
 }
@@ -210,22 +214,100 @@ fn emit_call(name: &String, args: &[Node]) {
     println!("    str x0, [sp, #-16]!");
 }
 
-fn gen_prologue(name: &String) {
+// Compute maximum stack offset needed for local variables and arrays
+fn compute_max_offset(node: &Node) -> u64 {
+    match node {
+        Node::Seq { first, second } => {
+            let m1 = compute_max_offset(first);
+            let m2 = compute_max_offset(second);
+            if m1 > m2 { m1 } else { m2 }
+        }
+        Node::Function { body, .. } => compute_max_offset(body),
+        Node::Num { .. } | Node::StringSlice { .. } => 0,
+        Node::Var { offset } => *offset,
+        Node::Call { args, .. } | Node::Syscall { args, .. } => {
+            let mut m = 0;
+            for arg in args {
+                let mm = compute_max_offset(arg);
+                if mm > m {
+                    m = mm;
+                }
+            }
+            m
+        }
+        Node::Assign { lhs, rhs } => compute_max_offset(lhs).max(compute_max_offset(rhs)),
+        Node::Add { lhs, rhs }
+        | Node::Sub { lhs, rhs }
+        | Node::Mul { lhs, rhs }
+        | Node::Div { lhs, rhs }
+        | Node::Eq { lhs, rhs }
+        | Node::Ne { lhs, rhs }
+        | Node::Lt { lhs, rhs }
+        | Node::Gt { lhs, rhs }
+        | Node::Le { lhs, rhs }
+        | Node::Ge { lhs, rhs } => compute_max_offset(lhs).max(compute_max_offset(rhs)),
+        Node::Return { expr } | Node::Deref { expr } | Node::Addr { expr } => {
+            compute_max_offset(expr)
+        }
+        Node::If {
+            cond,
+            then_stmt,
+            else_stmt,
+        } => {
+            let mut m = compute_max_offset(cond).max(compute_max_offset(then_stmt));
+            if let Some(e) = else_stmt {
+                m = m.max(compute_max_offset(e));
+            }
+            m
+        }
+        Node::While { cond, body } => compute_max_offset(cond).max(compute_max_offset(body)),
+        Node::For {
+            init,
+            cond,
+            update,
+            body,
+        } => {
+            let mut m = compute_max_offset(init);
+            m = m.max(compute_max_offset(cond));
+            m = m.max(compute_max_offset(update));
+            m = m.max(compute_max_offset(body));
+            m
+        }
+        Node::ArrayAssign { offset, elements } => {
+            let mut m = *offset;
+            if !elements.is_empty() {
+                let eo = *offset + (elements.len() as u64 - 1) * 8;
+                if eo > m {
+                    m = eo;
+                }
+            }
+            for elem in elements {
+                let mm = compute_max_offset(elem);
+                if mm > m {
+                    m = mm;
+                }
+            }
+            m
+        }
+    }
+}
+
+fn gen_prologue(name: &String, frame_size: u64) {
     println!(".globl _{}", name);
     println!("_{}:", name);
     // save old frame pointer and set up new
     println!("    stp x29, x30, [sp, #-16]!");
     println!("    mov x29, sp");
-    // reserve space for 3 local variables (3*16 bytes)
-    println!("    sub sp, sp, #48");
+    // reserve space for local variables
+    println!("    sub sp, sp, #{}", frame_size);
     println!("    str x0, [x29, #-8]");
 }
 
-fn gen_epilogue() {
+fn gen_epilogue(frame_size: u64) {
     // pop return value into x0
     println!("    ldr x0, [sp], #16");
     // deallocate local variable region
-    println!("    add sp, sp, #48");
+    println!("    add sp, sp, #{}", frame_size);
     // restore frame pointer and return
     println!("    ldp x29, x30, [sp], #16");
     println!("    ret");
@@ -233,7 +315,26 @@ fn gen_epilogue() {
 
 // helper to emit code for function definitions
 fn emit_function(name: &String, args: &Vec<Node>, body: &Box<Node>) {
-    gen_prologue(name);
+    // compute required frame size based on arguments and body
+    let mut max_offset = 0u64;
+    for arg in args.iter() {
+        if let Node::Var { offset } = arg {
+            if *offset > max_offset {
+                max_offset = *offset;
+            }
+        }
+    }
+    let body_max = compute_max_offset(body);
+    if body_max > max_offset {
+        max_offset = body_max;
+    }
+    // align frame size to 16 bytes, at least 48
+    let frame_size = if max_offset > 48 {
+        ((max_offset + 15) / 16) * 16
+    } else {
+        48
+    };
+    gen_prologue(name, frame_size);
     // Save arguments to local variables
     for (i, arg) in args.iter().enumerate() {
         if let Node::Var { offset } = arg {
@@ -241,7 +342,7 @@ fn emit_function(name: &String, args: &Vec<Node>, body: &Box<Node>) {
         }
     }
     gen_node(body);
-    gen_epilogue();
+    gen_epilogue(frame_size);
 }
 
 // helper to emit code for dereference
@@ -296,9 +397,11 @@ fn emit_array_assign(offset: u64, elements: &[Node]) {
         gen_node(elem);
         // pop into x1
         println!("    ldr x1, [sp], #16");
-        // compute element offset and store
+        // compute element offset and store using register addressing
         let off_i = offset + (i as u64) * 8;
-        println!("    str x1, [x29, #-{}]", off_i);
+        println!("    mov x2, x29");
+        println!("    sub x2, x2, #{}", off_i);
+        println!("    str x1, [x2]");
     }
     // push dummy to maintain stack balance
     println!("    mov x0, #0");

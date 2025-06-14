@@ -393,10 +393,19 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                         }
                         // allocate new variable offset
                         let last = vars.next.as_ref().map(|v| v.offset).unwrap_or(vars.offset);
-                        let new_off = last + 8;
-                        vars.push(name.clone(), new_off);
+                        let arr_offset = last + 8;
+                        // determine region end offset for array to avoid overlapping subsequent vars
+                        let region_end = if elements.is_empty() {
+                            arr_offset
+                        } else {
+                            arr_offset + (elements.len() as u64 - 1) * 8
+                        };
+                        // push array variable mapping
+                        vars.push(name.clone(), arr_offset);
+                        // push dummy mapping for region end to allocate array space
+                        vars.push("".to_string(), region_end);
                         return Node::ArrayAssign {
-                            offset: new_off,
+                            offset: arr_offset,
                             elements,
                         };
                     }
