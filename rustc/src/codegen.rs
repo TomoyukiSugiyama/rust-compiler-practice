@@ -99,6 +99,10 @@ fn emit_if(cond: &Node, then_stmt: &Node, else_stmt: Option<&Node>) {
     println!("{}:", else_label);
     if let Some(es) = else_stmt {
         gen_node(es);
+    } else {
+        // push default zero for no else branch to balance stack
+        println!("    mov x0, #0");
+        println!("    str x0, [sp, #-16]!");
     }
     // end label
     println!("{}:", end_label);
