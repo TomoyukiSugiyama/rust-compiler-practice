@@ -227,7 +227,7 @@ fn compute_max_offset(node: &Node) -> u64 {
             if m1 > m2 { m1 } else { m2 }
         }
         Node::Function { body, .. } => compute_max_offset(body),
-        Node::Num { .. } | Node::StringSlice { .. } => 0,
+        Node::Num { .. } | Node::StringLiteral { .. } => 0,
         Node::Var { offset } => *offset,
         Node::Call { args, .. } | Node::Syscall { args, .. } => {
             let mut m = 0;
@@ -409,7 +409,7 @@ fn gen_node(node: &Node) {
         Node::Seq { first, second } => emit_seq(first, second),
         Node::Function { name, args, body } => emit_function(name, args, body),
         Node::Num { value } => push_imm(*value),
-        Node::StringSlice { value } => emit_string(value),
+        Node::StringLiteral { value } => emit_string(value),
         Node::Var { offset } => emit_var(*offset),
         Node::Call { name, args } => emit_call(name, args),
         Node::Syscall { name, args } => emit_syscall(name, args),

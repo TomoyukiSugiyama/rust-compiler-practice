@@ -29,7 +29,7 @@ pub enum Node {
     Num {
         value: u64,
     },
-    StringSlice {
+    StringLiteral {
         value: String,
     },
     // Variables and functions
@@ -618,7 +618,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, 
     let tok = toks.next().unwrap();
     match tok.kind {
         TokenKind::Number { num } => Ok(Node::Num { value: num }),
-        TokenKind::String { value } => Ok(Node::StringSlice { value }),
+        TokenKind::String { value } => Ok(Node::StringLiteral { value }),
         TokenKind::LParen => {
             // Parse sub-expression
             let node = expr(toks, vars)?;
@@ -1431,7 +1431,7 @@ mod tests {
         let node = primary(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
-            Node::StringSlice {
+            Node::StringLiteral {
                 value: "Hello, world!".to_string()
             }
         );
