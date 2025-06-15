@@ -98,6 +98,19 @@ fn expect_next(toks: &mut Peekable<TokenIter>, expected: TokenKind) -> Token {
     tok
 }
 
+// Add helper to fold a Vec<Node> into nested Seq nodes
+fn fold_seq(nodes: Vec<Node>) -> Node {
+    let mut iter = nodes.into_iter();
+    let mut node = iter.next().unwrap();
+    for next in iter {
+        node = Node::Seq {
+            first: Box::new(node),
+            second: Box::new(next),
+        };
+    }
+    node
+}
+
 // program ::= function*
 pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let mut funcs = Vec::new();
@@ -109,15 +122,7 @@ pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         funcs.push(function(toks, vars));
     }
     // Fold functions into nested Seq nodes
-    let mut iter = funcs.into_iter();
-    let mut root = iter.next().unwrap();
-    for next in iter {
-        root = Node::Seq {
-            first: Box::new(root),
-            second: Box::new(next),
-        };
-    }
-    root
+    fold_seq(funcs)
 }
 
 // function ::= 'fn' ident '(' function_args? ')' ('->' type)? '{' stmt* '}'
@@ -170,15 +175,7 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
     let body = if stmts.is_empty() {
         Node::Num { value: 0 }
     } else {
-        let mut iter = stmts.into_iter();
-        let mut b = iter.next().unwrap();
-        for next in iter {
-            b = Node::Seq {
-                first: Box::new(b),
-                second: Box::new(next),
-            };
-        }
-        b
+        fold_seq(stmts)
     };
     Node::Function {
         name: name,
@@ -225,15 +222,7 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                     stmts.push(stmt(toks, vars));
                 }
                 expect_next(toks, TokenKind::RBrace);
-                let mut iter = stmts.into_iter();
-                let mut root = iter.next().unwrap();
-                for next in iter {
-                    root = Node::Seq {
-                        first: Box::new(root),
-                        second: Box::new(next),
-                    };
-                }
-                return root;
+                return fold_seq(stmts);
             }
             TokenKind::If => {
                 // parse if statement: 'if' '(' expr ')' stmt ('else' stmt)?
