@@ -1,4 +1,4 @@
-use crate::check::{error_tok, expect_token};
+use crate::check::{ParseError, error_tok, expect_token};
 use crate::token::*;
 use crate::variable::Variable;
 use std::iter::Peekable;
@@ -92,10 +92,13 @@ pub enum Node {
     },
 }
 
-fn expect_next(toks: &mut Peekable<TokenIter>, expected: TokenKind) -> Token {
-    let tok = toks.next().unwrap();
-    expect_token(&tok, &expected);
-    tok
+fn expect_next(toks: &mut Peekable<TokenIter>, expected: TokenKind) -> Result<Token, ParseError> {
+    let tok = toks.next().ok_or_else(|| ParseError {
+        msg: "unexpected EOF".into(),
+        pos: 0,
+    })?;
+    expect_token(&tok, &expected)?;
+    Ok(tok)
 }
 
 // Add helper to fold a Vec<Node> into nested Seq nodes
@@ -112,51 +115,54 @@ fn fold_seq(nodes: Vec<Node>) -> Node {
 }
 
 // program ::= function*
-pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+pub fn program(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
     let mut funcs = Vec::new();
     while let Some(tok) = toks.peek() {
         if let TokenKind::Eof = tok.kind {
             break;
         }
         // parse a function definition
-        funcs.push(function(toks, vars));
+        funcs.push(function(toks, vars)?);
     }
     // Fold functions into nested Seq nodes
-    fold_seq(funcs)
+    Ok(fold_seq(funcs))
 }
 
 // function ::= 'fn' ident '(' function_args? ')' ('->' type)? '{' stmt* '}'
-fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
     // consume 'fn'
-    expect_next(toks, TokenKind::Fn);
+    expect_next(toks, TokenKind::Fn)?;
     // parse function name
-    let tok = toks.next().unwrap();
+    let tok = toks.next().ok_or_else(|| ParseError {
+        msg: "expected identifier".into(),
+        pos: 0,
+    })?;
     let name = if let TokenKind::Ident { name } = tok.kind.clone() {
         name
     } else {
-        error_tok(&tok, "expected identifier");
+        return Err(error_tok(&tok, "expected identifier"));
     };
     // expect '('
-    expect_next(toks, TokenKind::LParen);
+    expect_next(toks, TokenKind::LParen)?;
     // parse optional parameters only if the next token is an identifier
     let mut args_vec = Vec::new();
     if let Some(peek) = toks.peek() {
         if let TokenKind::Ident { name: _ } = peek.kind {
-            args_vec = function_args(toks, vars);
+            args_vec = function_args(toks, vars)?;
         }
     }
     // expect ')'
-    expect_next(toks, TokenKind::RParen);
+    expect_next(toks, TokenKind::RParen)?;
     // optional return type '-> type'
     if let Some(peek) = toks.peek() {
         if peek.kind == TokenKind::Arrow {
             toks.next();
             // parse type (only i32 supported)
-            expect_next(toks, TokenKind::I32);
+            expect_next(toks, TokenKind::I32)?;
         }
     }
     // expect '{'
-    expect_next(toks, TokenKind::LBrace);
+    expect_next(toks, TokenKind::LBrace)?;
     // parse body statements
     let mut stmts = Vec::new();
     while let Some(peek) = toks.peek() {
@@ -165,23 +171,23 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         }
         // error if EOF reached before closing brace
         if peek.kind == TokenKind::Eof {
-            error_tok(peek, "expected RBrace");
+            return Err(error_tok(peek, "expected RBrace"));
         }
-        stmts.push(stmt(toks, vars));
+        stmts.push(stmt(toks, vars)?);
     }
     // expect '}'
-    expect_next(toks, TokenKind::RBrace);
+    expect_next(toks, TokenKind::RBrace)?;
     // fold into a single Node, default to 0 if empty
     let body = if stmts.is_empty() {
         Node::Num { value: 0 }
     } else {
         fold_seq(stmts)
     };
-    Node::Function {
+    Ok(Node::Function {
         name: name,
         args: args_vec,
         body: Box::new(body),
-    }
+    })
 }
 
 // stmt ::= expr ';' |
@@ -191,22 +197,22 @@ fn function(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 //          'if' '(' expr ')' stmt ('else' stmt)? |
 //          'while' '(' expr ')' stmt |
 //          'for' '(' expr ';' expr ';' expr ')' stmt
-fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
     // detect EOF as missing statement
     if let Some(tok) = toks.peek() {
         if tok.kind == TokenKind::Eof {
-            error_tok(tok, "expected statement");
+            return Err(error_tok(tok, "expected statement"));
         }
     }
     if let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::Return => {
                 toks.next();
-                let node = expr(toks, vars);
-                expect_next(toks, TokenKind::Semicolon);
-                return Node::Return {
+                let node = expr(toks, vars)?;
+                expect_next(toks, TokenKind::Semicolon)?;
+                return Ok(Node::Return {
                     expr: Box::new(node),
-                };
+                });
             }
             TokenKind::LBrace => {
                 toks.next();
@@ -217,123 +223,126 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                     }
                     // error if EOF before closing brace
                     if tok.kind == TokenKind::Eof {
-                        error_tok(tok, "expected RBrace");
+                        return Err(error_tok(tok, "expected RBrace"));
                     }
-                    stmts.push(stmt(toks, vars));
+                    stmts.push(stmt(toks, vars)?);
                 }
-                expect_next(toks, TokenKind::RBrace);
-                return fold_seq(stmts);
+                expect_next(toks, TokenKind::RBrace)?;
+                return Ok(fold_seq(stmts));
             }
             TokenKind::If => {
                 // parse if statement: 'if' '(' expr ')' stmt ('else' stmt)?
                 toks.next();
                 // expect '('
-                expect_next(toks, TokenKind::LParen);
+                expect_next(toks, TokenKind::LParen)?;
                 // error if no condition expression
                 if let Some(peek) = toks.peek() {
                     if peek.kind == TokenKind::RParen || peek.kind == TokenKind::Eof {
-                        error_tok(peek, "expected expression");
+                        return Err(error_tok(peek, "expected expression"));
                     }
                 }
                 // parse condition
-                let cond = expr(toks, vars);
+                let cond = expr(toks, vars)?;
                 // expect ')'
-                expect_next(toks, TokenKind::RParen);
+                expect_next(toks, TokenKind::RParen)?;
                 // parse then branch
-                let then_stmt = stmt(toks, vars);
+                let then_stmt = stmt(toks, vars)?;
                 // parse optional else branch
                 let else_stmt = if let Some(tok) = toks.peek() {
                     if tok.kind == TokenKind::Else {
                         toks.next();
-                        Some(Box::new(stmt(toks, vars)))
+                        Some(Box::new(stmt(toks, vars)?))
                     } else {
                         None
                     }
                 } else {
                     None
                 };
-                return Node::If {
+                return Ok(Node::If {
                     cond: Box::new(cond),
                     then_stmt: Box::new(then_stmt),
                     else_stmt: else_stmt,
-                };
+                });
             }
             TokenKind::While => {
                 // parse while statement: 'while' '(' expr ')' stmt
                 toks.next();
                 // expect '('
-                expect_next(toks, TokenKind::LParen);
+                expect_next(toks, TokenKind::LParen)?;
                 // error if no condition expression
                 if let Some(peek) = toks.peek() {
                     if peek.kind == TokenKind::RParen || peek.kind == TokenKind::Eof {
-                        error_tok(peek, "expected expression");
+                        return Err(error_tok(peek, "expected expression"));
                     }
                 }
                 // parse condition
-                let cond = expr(toks, vars);
+                let cond = expr(toks, vars)?;
                 // expect ')'
-                expect_next(toks, TokenKind::RParen);
+                expect_next(toks, TokenKind::RParen)?;
                 // parse body
-                let body = stmt(toks, vars);
-                return Node::While {
+                let body = stmt(toks, vars)?;
+                return Ok(Node::While {
                     cond: Box::new(cond),
                     body: Box::new(body),
-                };
+                });
             }
             TokenKind::For => {
                 // parse for statement: 'for' '(' expr ';' expr ';' expr ')' stmt
                 toks.next();
                 // expect '('
-                expect_next(toks, TokenKind::LParen);
+                expect_next(toks, TokenKind::LParen)?;
                 // error if missing init expression
                 if let Some(peek) = toks.peek() {
                     if peek.kind == TokenKind::Semicolon || peek.kind == TokenKind::Eof {
-                        error_tok(peek, "expected expression");
+                        return Err(error_tok(peek, "expected expression"));
                     }
                 }
                 // parse init
-                let init = expr(toks, vars);
-                expect_next(toks, TokenKind::Semicolon);
+                let init = expr(toks, vars)?;
+                expect_next(toks, TokenKind::Semicolon)?;
                 // error if missing condition expression
                 if let Some(peek) = toks.peek() {
                     if peek.kind == TokenKind::Semicolon || peek.kind == TokenKind::Eof {
-                        error_tok(peek, "expected expression");
+                        return Err(error_tok(peek, "expected expression"));
                     }
                 }
                 // parse condition
-                let cond = expr(toks, vars);
-                expect_next(toks, TokenKind::Semicolon);
+                let cond = expr(toks, vars)?;
+                expect_next(toks, TokenKind::Semicolon)?;
                 // error if missing update expression
                 if let Some(peek) = toks.peek() {
                     if peek.kind == TokenKind::RParen || peek.kind == TokenKind::Eof {
-                        error_tok(peek, "expected expression");
+                        return Err(error_tok(peek, "expected expression"));
                     }
                 }
                 // parse update
-                let update = expr(toks, vars);
+                let update = expr(toks, vars)?;
                 // expect ')'
-                expect_next(toks, TokenKind::RParen);
+                expect_next(toks, TokenKind::RParen)?;
                 // parse body
-                let body = stmt(toks, vars);
-                return Node::For {
+                let body = stmt(toks, vars)?;
+                return Ok(Node::For {
                     init: Box::new(init),
                     cond: Box::new(cond),
                     update: Box::new(update),
                     body: Box::new(body),
-                };
+                });
             }
             TokenKind::Let => {
                 // parse let statement: 'let' ident '=' expr ';'
                 toks.next();
                 // expect identifier
-                let tok_ident = toks.next().unwrap();
+                let tok_ident = toks.next().ok_or_else(|| ParseError {
+                    msg: "expected identifier after 'let'".into(),
+                    pos: 0,
+                })?;
                 let name = if let TokenKind::Ident { name } = tok_ident.kind.clone() {
                     name
                 } else {
-                    error_tok(&tok_ident, "expected identifier after 'let'");
+                    return Err(error_tok(&tok_ident, "expected identifier after 'let'"));
                 };
                 // expect '='
-                expect_next(toks, TokenKind::Assign);
+                expect_next(toks, TokenKind::Assign)?;
                 // array literal assignment: let name = [expr, ...];
                 if let Some(peek) = toks.peek() {
                     if peek.kind == TokenKind::LBracket {
@@ -342,22 +351,22 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                         // parse elements if not empty
                         if let Some(peek2) = toks.peek() {
                             if peek2.kind != TokenKind::RBracket {
-                                elements.push(expr(toks, vars));
+                                elements.push(expr(toks, vars)?);
                                 while let Some(tok2) = toks.peek() {
                                     if tok2.kind == TokenKind::Comma {
                                         toks.next();
-                                        elements.push(expr(toks, vars));
+                                        elements.push(expr(toks, vars)?);
                                     } else {
                                         break;
                                     }
                                 }
                             }
                         }
-                        expect_next(toks, TokenKind::RBracket);
-                        expect_next(toks, TokenKind::Semicolon);
+                        expect_next(toks, TokenKind::RBracket)?;
+                        expect_next(toks, TokenKind::Semicolon)?;
                         // check for duplicate variable
                         if vars.find(&name).is_some() {
-                            error_tok(&tok_ident, "variable already declared");
+                            return Err(error_tok(&tok_ident, "variable already declared"));
                         }
                         // allocate new variable offset
                         let last = vars.next.as_ref().map(|v| v.offset).unwrap_or(vars.offset);
@@ -372,52 +381,52 @@ fn stmt(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                         vars.push(name.clone(), arr_offset);
                         // push dummy mapping for region end to allocate array space
                         vars.push("".to_string(), region_end);
-                        return Node::ArrayAssign {
+                        return Ok(Node::ArrayAssign {
                             offset: arr_offset,
                             elements,
-                        };
+                        });
                     }
                 }
                 // parse expression
-                let rhs = expr(toks, vars);
+                let rhs = expr(toks, vars)?;
                 // expect ';'
-                expect_next(toks, TokenKind::Semicolon);
+                expect_next(toks, TokenKind::Semicolon)?;
                 // check for duplicate variable
                 if vars.find(&name).is_some() {
-                    error_tok(&tok_ident, "variable already declared");
+                    return Err(error_tok(&tok_ident, "variable already declared"));
                 }
                 // allocate new variable offset
                 let last = vars.next.as_ref().map(|v| v.offset).unwrap_or(vars.offset);
                 let new_off = last + 8;
                 vars.push(name.clone(), new_off);
                 // return assignment node
-                return Node::Assign {
+                return Ok(Node::Assign {
                     lhs: Box::new(Node::Var { offset: new_off }),
                     rhs: Box::new(rhs),
-                };
+                });
             }
             _ => {}
         }
     }
     // expression statement
-    let node = expr(toks, vars);
-    expect_next(toks, TokenKind::Semicolon);
-    node
+    let node = expr(toks, vars)?;
+    expect_next(toks, TokenKind::Semicolon)?;
+    Ok(node)
 }
 
 // expr ::= assign
-fn expr(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+fn expr(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
     assign(toks, vars)
 }
 
 // assign ::= equality ('=' assign)?
-fn assign(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
-    let mut lhs = equality(toks, vars);
+fn assign(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
+    let mut lhs = equality(toks, vars)?;
     if let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::Assign => {
                 toks.next();
-                let rhs = assign(toks, vars);
+                let rhs = assign(toks, vars)?;
                 lhs = Node::Assign {
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
@@ -426,135 +435,145 @@ fn assign(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             _ => {}
         }
     }
-    lhs
+    Ok(lhs)
 }
 
 // equality ::= relational (( '==' | '!=' ) relational)*
-fn equality(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
-    let mut lhs = relational(toks, vars);
+fn equality(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
+    let mut lhs = relational(toks, vars)?;
     while let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::EqEq => {
                 toks.next();
+                let rhs = relational(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Eq,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(relational(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             TokenKind::Ne => {
                 toks.next();
+                let rhs = relational(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Ne,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(relational(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             _ => break,
         }
     }
-    lhs
+    Ok(lhs)
 }
 
 // relational ::= add (('<' | '>' | '<=' | '>=') add)*
-fn relational(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
-    let mut lhs = add(toks, vars);
+fn relational(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
+    let mut lhs = add(toks, vars)?;
     while let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::Lt => {
                 toks.next();
+                let rhs = add(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Lt,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(add(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             TokenKind::Gt => {
                 toks.next();
+                let rhs = add(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Gt,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(add(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             TokenKind::Le => {
                 toks.next();
+                let rhs = add(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Le,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(add(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             TokenKind::Ge => {
                 toks.next();
+                let rhs = add(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Ge,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(add(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             _ => break,
         }
     }
-    lhs
+    Ok(lhs)
 }
 
 // add ::= mul (('+' | '-') mul)*
-fn add(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
-    let mut lhs = mul(toks, vars);
+fn add(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
+    let mut lhs = mul(toks, vars)?;
     while let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::Plus => {
                 toks.next();
+                let rhs = mul(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Add,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(mul(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             TokenKind::Minus => {
                 toks.next();
+                let rhs = mul(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Sub,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(mul(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             _ => break,
         }
     }
-    lhs
+    Ok(lhs)
 }
 
 // mul ::= unary (('*' | '/') unary)*
-fn mul(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
-    let mut lhs = unary(toks, vars);
+fn mul(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
+    let mut lhs = unary(toks, vars)?;
     while let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::Star => {
                 toks.next();
+                let rhs = unary(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Mul,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(unary(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             TokenKind::Slash => {
                 toks.next();
+                let rhs = unary(toks, vars)?;
                 lhs = Node::BinaryOp {
                     op: OpKind::Div,
                     lhs: Box::new(lhs),
-                    rhs: Box::new(unary(toks, vars)),
+                    rhs: Box::new(rhs),
                 };
             }
             _ => break,
         }
     }
-    lhs
+    Ok(lhs)
 }
 
 // unary ::= ('+' | '-')? primary | ('*' | '&') unary
-fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
     if let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::Plus => {
@@ -563,23 +582,26 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             }
             TokenKind::Minus => {
                 toks.next();
-                return Node::BinaryOp {
+                let node = primary(toks, vars)?;
+                return Ok(Node::BinaryOp {
                     op: OpKind::Sub,
                     lhs: Box::new(Node::Num { value: 0 }),
-                    rhs: Box::new(primary(toks, vars)),
-                };
+                    rhs: Box::new(node),
+                });
             }
             TokenKind::Star => {
                 toks.next();
-                return Node::Deref {
-                    expr: Box::new(unary(toks, vars)),
-                };
+                let expr = unary(toks, vars)?;
+                return Ok(Node::Deref {
+                    expr: Box::new(expr),
+                });
             }
             TokenKind::Amp => {
                 toks.next();
-                return Node::Addr {
-                    expr: Box::new(unary(toks, vars)),
-                };
+                let expr = unary(toks, vars)?;
+                return Ok(Node::Addr {
+                    expr: Box::new(expr),
+                });
             }
             _ => {}
         }
@@ -592,16 +614,16 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
 //             ident ('(' args? ')')? |
 //             '(' expr ')' |
 //             string |
-fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
+fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Node, ParseError> {
     let tok = toks.next().unwrap();
     match tok.kind {
-        TokenKind::Number { num } => Node::Num { value: num },
-        TokenKind::String { value } => Node::StringSlice { value },
+        TokenKind::Number { num } => Ok(Node::Num { value: num }),
+        TokenKind::String { value } => Ok(Node::StringSlice { value }),
         TokenKind::LParen => {
             // Parse sub-expression
-            let node = expr(toks, vars);
-            expect_next(toks, TokenKind::RParen);
-            node
+            let node = expr(toks, vars)?;
+            expect_next(toks, TokenKind::RParen)?;
+            Ok(node)
         }
         TokenKind::Ident { name } => {
             let name = name.clone();
@@ -610,9 +632,9 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 if tok2.kind == TokenKind::LBracket {
                     toks.next(); // consume '['
                     // parse index expression
-                    let idx = expr(toks, vars);
+                    let idx = expr(toks, vars)?;
                     // expect ']'
-                    expect_next(toks, TokenKind::RBracket);
+                    expect_next(toks, TokenKind::RBracket)?;
                     // determine variable offset (allocate if not exist)
                     let offset = if let Some(off) = vars.find(&name) {
                         off
@@ -623,7 +645,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                         new_off
                     };
                     // compute address: &name - idx * 8 (array indexing)
-                    return Node::BinaryOp {
+                    return Ok(Node::BinaryOp {
                         op: OpKind::Sub,
                         lhs: Box::new(Node::Addr {
                             expr: Box::new(Node::Var { offset }),
@@ -633,7 +655,7 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                             lhs: Box::new(idx),
                             rhs: Box::new(Node::Num { value: 8 }),
                         }),
-                    };
+                    });
                 }
             }
             // function call: name(args?)
@@ -645,24 +667,24 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                         if peek.kind == TokenKind::RParen {
                             Vec::new()
                         } else {
-                            args(toks, vars)
+                            args(toks, vars)?
                         }
                     } else {
                         Vec::new()
                     };
                     // expect closing ')'
-                    expect_next(toks, TokenKind::RParen);
+                    expect_next(toks, TokenKind::RParen)?;
                     // Special handling for write as a system call
                     if name == "write" {
-                        return Node::Syscall {
+                        return Ok(Node::Syscall {
                             name: "write".to_string(),
                             args: args_vec,
-                        };
+                        });
                     }
-                    return Node::Call {
+                    return Ok(Node::Call {
                         name,
                         args: args_vec,
-                    };
+                    });
                 }
             }
             // variable
@@ -674,14 +696,20 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                 vars.push(name.clone(), new_off);
                 new_off
             };
-            Node::Var { offset }
+            Ok(Node::Var { offset })
         }
-        _ => error_tok(&tok, &format!("unexpected token: {:?}", tok.kind)),
+        _ => Err(error_tok(
+            &tok,
+            &format!("unexpected token: {:?}", tok.kind),
+        )),
     }
 }
 
 // function_args ::= ident ':' type (',' ident ':' type)*
-fn function_args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Node> {
+fn function_args(
+    toks: &mut Peekable<TokenIter>,
+    vars: &mut Variable,
+) -> Result<Vec<Node>, ParseError> {
     let mut args = Vec::new();
     // Parse one or more function_arg ::= ident ':' type, separated by commas
     loop {
@@ -690,12 +718,12 @@ fn function_args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Nod
         let name = if let TokenKind::Ident { name } = &tok.kind {
             name.clone()
         } else {
-            error_tok(&tok, "expected identifier");
+            return Err(error_tok(&tok, "expected identifier"));
         };
         // ':'
-        expect_next(toks, TokenKind::Colon);
+        expect_next(toks, TokenKind::Colon)?;
         // type (e.g., 'i32')
-        expect_next(toks, TokenKind::I32);
+        expect_next(toks, TokenKind::I32)?;
         // assign new offset for this parameter
         let off = if let Some(off) = vars.find(&name) {
             off
@@ -716,17 +744,17 @@ fn function_args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Nod
         }
         break;
     }
-    args
+    Ok(args)
 }
 
 // args ::= expr (',' expr)*
-fn args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Node> {
+fn args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Result<Vec<Node>, ParseError> {
     let mut args = Vec::new();
     while let Some(tok) = toks.peek() {
         match tok.kind {
             TokenKind::RParen => break,
             _ => {
-                args.push(expr(toks, vars));
+                args.push(expr(toks, vars)?);
                 if let Some(tok2) = toks.peek() {
                     match tok2.kind {
                         TokenKind::Comma => {
@@ -739,7 +767,7 @@ fn args(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Vec<Node> {
             }
         }
     }
-    args
+    Ok(args)
 }
 
 #[cfg(test)]
@@ -749,9 +777,12 @@ mod tests {
     //=== Function parsing (happy path) ===
     #[test]
     fn test_program_single_function() {
-        let mut iter = tokenize("fn main() { 42; }").into_iter().peekable();
+        let mut iter = tokenize("fn main() { 42; }")
+            .unwrap()
+            .into_iter()
+            .peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
+        let node = program(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::Function {
@@ -765,10 +796,11 @@ mod tests {
     #[test]
     fn test_program_two_functions() {
         let mut iter = tokenize("fn main() { 1; } fn foo() { 2; }")
+            .unwrap()
             .into_iter()
             .peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
+        let node = program(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::Seq {
@@ -788,9 +820,12 @@ mod tests {
 
     #[test]
     fn test_program_return_in_function() {
-        let mut iter = tokenize("fn main() { return 3; }").into_iter().peekable();
+        let mut iter = tokenize("fn main() { return 3; }")
+            .unwrap()
+            .into_iter()
+            .peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
+        let node = program(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::Function {
@@ -806,10 +841,11 @@ mod tests {
     #[test]
     fn test_program_two_functions_with_return() {
         let mut iter = tokenize("fn mainA() { 1; } fn mainB() { return 2; }")
+            .unwrap()
             .into_iter()
             .peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
+        let node = program(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::Seq {
@@ -833,65 +869,65 @@ mod tests {
     #[test]
     #[should_panic(expected = "expected identifier")]
     fn test_error_fn_missing_ident() {
-        let mut iter = tokenize("fn() {}").into_iter().peekable();
+        let mut iter = tokenize("fn() {}").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
+        program(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected LParen")]
     fn test_error_fn_missing_lparen() {
-        let mut iter = tokenize("fn main) { }").into_iter().peekable();
+        let mut iter = tokenize("fn main) { }").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
+        program(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected RParen")]
     fn test_error_fn_missing_rparen() {
-        let mut iter = tokenize("fn main( {}").into_iter().peekable();
+        let mut iter = tokenize("fn main( {}").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
+        program(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected LBrace")]
     fn test_error_fn_missing_lbrace() {
-        let mut iter = tokenize("fn main() )").into_iter().peekable();
+        let mut iter = tokenize("fn main() )").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
+        program(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected RBrace")]
     fn test_error_fn_missing_rbrace() {
-        let mut iter = tokenize("fn main() { 1;").into_iter().peekable();
+        let mut iter = tokenize("fn main() { 1;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
+        program(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected Colon")]
     fn test_error_fn_args_missing_colon() {
-        let mut iter = tokenize("fn foo(a i32) {}").into_iter().peekable();
+        let mut iter = tokenize("fn foo(a i32) {}").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
+        program(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected I32")]
     fn test_error_fn_args_missing_type() {
-        let mut iter = tokenize("fn foo(a:)").into_iter().peekable();
+        let mut iter = tokenize("fn foo(a:)").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        program(&mut iter, &mut vars);
+        program(&mut iter, &mut vars).unwrap();
     }
 
     //=== If parsing (happy path) ===
     #[test]
     fn test_stmt_if() {
-        let mut iter = tokenize("if (1) 2;").into_iter().peekable();
+        let mut iter = tokenize("if (1) 2;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = stmt(&mut iter, &mut vars);
+        let node = stmt(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::If {
@@ -904,9 +940,12 @@ mod tests {
 
     #[test]
     fn test_stmt_if_else() {
-        let mut iter = tokenize("if (1) 2; else 3;").into_iter().peekable();
+        let mut iter = tokenize("if (1) 2; else 3;")
+            .unwrap()
+            .into_iter()
+            .peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = stmt(&mut iter, &mut vars);
+        let node = stmt(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::If {
@@ -921,41 +960,41 @@ mod tests {
     #[test]
     #[should_panic(expected = "expected LParen")]
     fn test_error_if_missing_lparen() {
-        let mut iter = tokenize("if 1) 2;").into_iter().peekable();
+        let mut iter = tokenize("if 1) 2;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected RParen")]
     fn test_error_if_missing_rparen() {
-        let mut iter = tokenize("if (1 2 3;").into_iter().peekable();
+        let mut iter = tokenize("if (1 2 3;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected expression")]
     fn test_error_if_missing_condition() {
-        let mut iter = tokenize("if () 1;").into_iter().peekable();
+        let mut iter = tokenize("if () 1;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected statement")]
     fn test_error_if_missing_then_branch() {
-        let mut iter = tokenize("if (1)").into_iter().peekable();
+        let mut iter = tokenize("if (1)").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     //=== While parsing (happy path) ===
     #[test]
     fn test_stmt_while() {
-        let mut iter = tokenize("while (1) 2;").into_iter().peekable();
+        let mut iter = tokenize("while (1) 2;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = stmt(&mut iter, &mut vars);
+        let node = stmt(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::While {
@@ -969,41 +1008,41 @@ mod tests {
     #[test]
     #[should_panic(expected = "expected LParen")]
     fn test_error_while_missing_lparen() {
-        let mut iter = tokenize("while 1) 2;").into_iter().peekable();
+        let mut iter = tokenize("while 1) 2;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected RParen")]
     fn test_error_while_missing_rparen() {
-        let mut iter = tokenize("while (1 2;").into_iter().peekable();
+        let mut iter = tokenize("while (1 2;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected expression")]
     fn test_error_while_missing_condition() {
-        let mut iter = tokenize("while () 2;").into_iter().peekable();
+        let mut iter = tokenize("while () 2;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected statement")]
     fn test_error_while_missing_body() {
-        let mut iter = tokenize("while (1)").into_iter().peekable();
+        let mut iter = tokenize("while (1)").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     //=== For parsing (happy path) ===
     #[test]
     fn test_stmt_for() {
-        let mut iter = tokenize("for (1;2;3) 4;").into_iter().peekable();
+        let mut iter = tokenize("for (1;2;3) 4;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = stmt(&mut iter, &mut vars);
+        let node = stmt(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::For {
@@ -1019,81 +1058,81 @@ mod tests {
     #[test]
     #[should_panic(expected = "expected LParen")]
     fn test_error_for_missing_lparen() {
-        let mut iter = tokenize("for 1;2;3) 4;").into_iter().peekable();
+        let mut iter = tokenize("for 1;2;3) 4;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected Semicolon")]
     fn test_error_for_missing_semicolon1() {
-        let mut iter = tokenize("for (1 2;3) 4;").into_iter().peekable();
+        let mut iter = tokenize("for (1 2;3) 4;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected Semicolon")]
     fn test_error_for_missing_semicolon2() {
-        let mut iter = tokenize("for (1;2 3) 4;").into_iter().peekable();
+        let mut iter = tokenize("for (1;2 3) 4;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected expression")]
     fn test_error_for_missing_init() {
-        let mut iter = tokenize("for (;2;3) 4;").into_iter().peekable();
+        let mut iter = tokenize("for (;2;3) 4;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected expression")]
     fn test_error_for_missing_cond() {
-        let mut iter = tokenize("for (1;;3) 4;").into_iter().peekable();
+        let mut iter = tokenize("for (1;;3) 4;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected expression")]
     fn test_error_for_missing_update() {
-        let mut iter = tokenize("for (1;2;) 4;").into_iter().peekable();
+        let mut iter = tokenize("for (1;2;) 4;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected RParen")]
     fn test_error_for_missing_rparen() {
-        let mut iter = tokenize("for (1;2;3 4;").into_iter().peekable();
+        let mut iter = tokenize("for (1;2;3 4;").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected statement")]
     fn test_error_for_missing_body() {
-        let mut iter = tokenize("for (1;2;3)").into_iter().peekable();
+        let mut iter = tokenize("for (1;2;3)").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     //=== Miscellaneous parsing tests ===
     #[test]
     fn test_primary() {
-        let mut iter = tokenize("42").into_iter().peekable();
+        let mut iter = tokenize("42").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = primary(&mut iter, &mut vars);
+        let node = primary(&mut iter, &mut vars).unwrap();
         assert_eq!(node, Node::Num { value: 42 });
     }
 
     #[test]
     fn test_expr_add_sub() {
-        let mut iter = tokenize("1+2").into_iter().peekable();
+        let mut iter = tokenize("1+2").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::BinaryOp {
@@ -1106,9 +1145,9 @@ mod tests {
 
     #[test]
     fn test_expr_precedence() {
-        let mut iter = tokenize("1+2*3").into_iter().peekable();
+        let mut iter = tokenize("1+2*3").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         let expected = Node::BinaryOp {
             op: OpKind::Add,
             lhs: Box::new(Node::Num { value: 1 }),
@@ -1123,9 +1162,9 @@ mod tests {
 
     #[test]
     fn test_expr_parens_mul() {
-        let mut iter = tokenize("(1+2)*3").into_iter().peekable();
+        let mut iter = tokenize("(1+2)*3").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         let expected = Node::BinaryOp {
             op: OpKind::Mul,
             lhs: Box::new(Node::BinaryOp {
@@ -1140,17 +1179,17 @@ mod tests {
 
     #[test]
     fn test_primary_parens() {
-        let mut iter = tokenize("(42)").into_iter().peekable();
+        let mut iter = tokenize("(42)").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = primary(&mut iter, &mut vars);
+        let node = primary(&mut iter, &mut vars).unwrap();
         assert_eq!(node, Node::Num { value: 42 });
     }
 
     #[test]
     fn test_expr_nested_parens() {
-        let mut iter = tokenize("((1+2))").into_iter().peekable();
+        let mut iter = tokenize("((1+2))").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::BinaryOp {
@@ -1163,9 +1202,9 @@ mod tests {
 
     #[test]
     fn test_expr_assign() {
-        let mut iter = tokenize("1=2").into_iter().peekable();
+        let mut iter = tokenize("1=2").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::Assign {
@@ -1177,9 +1216,9 @@ mod tests {
 
     #[test]
     fn test_expr_eq_ne() {
-        let mut it1 = tokenize("1==2").into_iter().peekable();
+        let mut it1 = tokenize("1==2").unwrap().into_iter().peekable();
         let mut vars1 = Variable::new("".to_string(), 0, None);
-        let n1 = expr(&mut it1, &mut vars1);
+        let n1 = expr(&mut it1, &mut vars1).unwrap();
         assert_eq!(
             n1,
             Node::BinaryOp {
@@ -1188,9 +1227,9 @@ mod tests {
                 rhs: Box::new(Node::Num { value: 2 }),
             }
         );
-        let mut it2 = tokenize("1!=2").into_iter().peekable();
+        let mut it2 = tokenize("1!=2").unwrap().into_iter().peekable();
         let mut vars2 = Variable::new("".to_string(), 0, None);
-        let n2 = expr(&mut it2, &mut vars2);
+        let n2 = expr(&mut it2, &mut vars2).unwrap();
         assert_eq!(
             n2,
             Node::BinaryOp {
@@ -1204,9 +1243,9 @@ mod tests {
     #[test]
     fn test_expr_relational() {
         let mut vars = Variable::new("".to_string(), 0, None);
-        let mut it_lt = tokenize("1<2").into_iter().peekable();
+        let mut it_lt = tokenize("1<2").unwrap().into_iter().peekable();
         assert_eq!(
-            expr(&mut it_lt, &mut vars),
+            expr(&mut it_lt, &mut vars).unwrap(),
             Node::BinaryOp {
                 op: OpKind::Lt,
                 lhs: Box::new(Node::Num { value: 1 }),
@@ -1214,9 +1253,9 @@ mod tests {
             }
         );
         let mut vars2 = Variable::new("".to_string(), 0, None);
-        let mut it_gt = tokenize("2>1").into_iter().peekable();
+        let mut it_gt = tokenize("2>1").unwrap().into_iter().peekable();
         assert_eq!(
-            expr(&mut it_gt, &mut vars2),
+            expr(&mut it_gt, &mut vars2).unwrap(),
             Node::BinaryOp {
                 op: OpKind::Gt,
                 lhs: Box::new(Node::Num { value: 2 }),
@@ -1224,9 +1263,9 @@ mod tests {
             }
         );
         let mut vars3 = Variable::new("".to_string(), 0, None);
-        let mut it_le = tokenize("1<=1").into_iter().peekable();
+        let mut it_le = tokenize("1<=1").unwrap().into_iter().peekable();
         assert_eq!(
-            expr(&mut it_le, &mut vars3),
+            expr(&mut it_le, &mut vars3).unwrap(),
             Node::BinaryOp {
                 op: OpKind::Le,
                 lhs: Box::new(Node::Num { value: 1 }),
@@ -1234,9 +1273,9 @@ mod tests {
             }
         );
         let mut vars4 = Variable::new("".to_string(), 0, None);
-        let mut it_ge = tokenize("2>=2").into_iter().peekable();
+        let mut it_ge = tokenize("2>=2").unwrap().into_iter().peekable();
         assert_eq!(
-            expr(&mut it_ge, &mut vars4),
+            expr(&mut it_ge, &mut vars4).unwrap(),
             Node::BinaryOp {
                 op: OpKind::Ge,
                 lhs: Box::new(Node::Num { value: 2 }),
@@ -1247,27 +1286,27 @@ mod tests {
 
     #[test]
     fn test_ident_offset() {
-        let mut iter = tokenize("a").into_iter().peekable();
+        let mut iter = tokenize("a").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = primary(&mut iter, &mut vars);
+        let node = primary(&mut iter, &mut vars).unwrap();
         assert_eq!(node, Node::Var { offset: 8 });
     }
 
     #[test]
     fn test_ident_repeated_offset() {
-        let mut iter = tokenize("a a").into_iter().peekable();
+        let mut iter = tokenize("a a").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let first = primary(&mut iter, &mut vars);
-        let second = primary(&mut iter, &mut vars);
+        let first = primary(&mut iter, &mut vars).unwrap();
+        let second = primary(&mut iter, &mut vars).unwrap();
         assert_eq!(first, Node::Var { offset: 8 });
         assert_eq!(second, Node::Var { offset: 8 });
     }
 
     #[test]
     fn test_assign_ident() {
-        let mut iter = tokenize("a=1").into_iter().peekable();
+        let mut iter = tokenize("a=1").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::Assign {
@@ -1279,10 +1318,10 @@ mod tests {
 
     #[test]
     fn test_call_no_args() {
-        let mut iter = tokenize("foo()").into_iter().peekable();
+        let mut iter = tokenize("foo()").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         assert_eq!(
-            primary(&mut iter, &mut vars),
+            primary(&mut iter, &mut vars).unwrap(),
             Node::Call {
                 name: "foo".to_string(),
                 args: vec![],
@@ -1292,10 +1331,10 @@ mod tests {
 
     #[test]
     fn test_call_one_arg() {
-        let mut iter = tokenize("foo(42)").into_iter().peekable();
+        let mut iter = tokenize("foo(42)").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         assert_eq!(
-            primary(&mut iter, &mut vars),
+            primary(&mut iter, &mut vars).unwrap(),
             Node::Call {
                 name: "foo".to_string(),
                 args: vec![Node::Num { value: 42 }],
@@ -1305,10 +1344,10 @@ mod tests {
 
     #[test]
     fn test_call_multiple_args() {
-        let mut iter = tokenize("foo(1,2)").into_iter().peekable();
+        let mut iter = tokenize("foo(1,2)").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         assert_eq!(
-            primary(&mut iter, &mut vars),
+            primary(&mut iter, &mut vars).unwrap(),
             Node::Call {
                 name: "foo".to_string(),
                 args: vec![Node::Num { value: 1 }, Node::Num { value: 2 }],
@@ -1320,32 +1359,32 @@ mod tests {
     #[test]
     #[should_panic(expected = "expected RParen")]
     fn test_error_primary_missing_rparen() {
-        let mut iter = tokenize("(1+2").into_iter().peekable();
+        let mut iter = tokenize("(1+2").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        primary(&mut iter, &mut vars);
+        primary(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "expected Semicolon")]
     fn test_error_stmt_missing_semicolon() {
-        let mut iter = tokenize("42").into_iter().peekable();
+        let mut iter = tokenize("42").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        stmt(&mut iter, &mut vars);
+        stmt(&mut iter, &mut vars).unwrap();
     }
 
     #[test]
     fn test_unary_plus() {
-        let mut iter = tokenize("+42").into_iter().peekable();
+        let mut iter = tokenize("+42").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         assert_eq!(node, Node::Num { value: 42 });
     }
 
     #[test]
     fn test_unary_minus() {
-        let mut iter = tokenize("-42").into_iter().peekable();
+        let mut iter = tokenize("-42").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::BinaryOp {
@@ -1358,9 +1397,9 @@ mod tests {
 
     #[test]
     fn test_unary_deref() {
-        let mut iter = tokenize("*42").into_iter().peekable();
+        let mut iter = tokenize("*42").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::Deref {
@@ -1371,9 +1410,9 @@ mod tests {
 
     #[test]
     fn test_unary_addr() {
-        let mut iter = tokenize("&42").into_iter().peekable();
+        let mut iter = tokenize("&42").unwrap().into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = expr(&mut iter, &mut vars);
+        let node = expr(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::Addr {
@@ -1384,9 +1423,12 @@ mod tests {
 
     #[test]
     fn test_primary_string() {
-        let mut iter = tokenize(r#""Hello, world!""#).into_iter().peekable();
+        let mut iter = tokenize(r#""Hello, world!""#)
+            .unwrap()
+            .into_iter()
+            .peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = primary(&mut iter, &mut vars);
+        let node = primary(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::StringSlice {
@@ -1398,10 +1440,11 @@ mod tests {
     #[test]
     fn test_array_assignment_and_indexing() {
         let mut iter = tokenize("fn main() { let arr = [1, 2, 3]; return arr[2]; }")
+            .unwrap()
             .into_iter()
             .peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
-        let node = program(&mut iter, &mut vars);
+        let node = program(&mut iter, &mut vars).unwrap();
         assert_eq!(
             node,
             Node::Function {

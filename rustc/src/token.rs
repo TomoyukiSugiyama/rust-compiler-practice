@@ -56,6 +56,7 @@ impl Token {
     }
 }
 
+use crate::check::ParseError;
 use crate::check::{error_at, set_current_exp};
 
 use std::iter::Peekable;
@@ -141,7 +142,11 @@ const OPERATORS: &[(&str, TokenKind)] = &[
 ];
 
 /// Reads an operator or delimiter and returns the TokenKind by matching against `OPERATORS`.
-fn read_operator(chars: &mut Peekable<CharIndices>, exp: &str, pos: usize) -> TokenKind {
+fn read_operator(
+    chars: &mut Peekable<CharIndices>,
+    exp: &str,
+    pos: usize,
+) -> Result<TokenKind, ParseError> {
     let rest = &exp[pos..];
     for &(s, ref kind) in OPERATORS {
         if rest.starts_with(s) {
@@ -149,11 +154,11 @@ fn read_operator(chars: &mut Peekable<CharIndices>, exp: &str, pos: usize) -> To
             for _ in 0..s.chars().count() {
                 chars.next();
             }
-            return kind.clone();
+            return Ok(kind.clone());
         }
     }
     // no operator matched; report error
-    error_at(exp, pos, "無効な文字です");
+    Err(error_at(exp, pos, "無効な文字です"))
 }
 
 /// Skips characters until the end of the current line (including newline), assuming the next two chars are "//".
@@ -194,24 +199,28 @@ fn skip_block_comment(chars: &mut Peekable<CharIndices>, _exp: &str, start_pos: 
 }
 
 /// Reads a string literal and returns it as a string.
-fn read_string(chars: &mut Peekable<CharIndices>, exp: &str, start_pos: usize) -> String {
+fn read_string(
+    chars: &mut Peekable<CharIndices>,
+    exp: &str,
+    start_pos: usize,
+) -> Result<String, ParseError> {
     let mut s = String::new();
     // Skip opening quote
     chars.next();
     while let Some((_, ch)) = chars.next() {
         if ch == '"' {
-            return s;
+            return Ok(s);
         }
         s.push(ch);
     }
     // If we get here, we hit EOF before finding closing quote
-    error_at(exp, start_pos, "文字列が閉じられていません");
+    Err(error_at(exp, start_pos, "文字列が閉じられていません"))
 }
 
 /// Tokenizes an arithmetic expression into a linked list of tokens.
 /// Supports positive integers, identifiers, operators, and delimiters.
 /// Returns the head `Token`, whose chained `next` pointers end with an `Eof` token.
-pub fn tokenize(exp: &str) -> Token {
+pub fn tokenize(exp: &str) -> Result<Token, ParseError> {
     set_current_exp(exp);
     // Build linked list with a sentinel head (pos=0)
     let mut head = Token {
@@ -238,7 +247,7 @@ pub fn tokenize(exp: &str) -> Token {
         } else if c == '"' {
             // Handle string literal
             let start = i;
-            let s = read_string(&mut chars, exp, start);
+            let s = read_string(&mut chars, exp, start)?;
             tail = tail.push(TokenKind::String { value: s }, start);
             continue;
         } else if c.is_ascii_digit() {
@@ -255,13 +264,13 @@ pub fn tokenize(exp: &str) -> Token {
         } else {
             // Operators and delimiters
             let pos = i;
-            let kind = read_operator(&mut chars, exp, pos);
+            let kind = read_operator(&mut chars, exp, pos)?;
             tail = tail.push(kind, pos);
         }
     }
     // Append EOF token at end of input
     tail.push(TokenKind::Eof, exp.len());
-    head
+    Ok(head)
 }
 
 /// An iterator over tokens (skips the initial Start sentinel)
@@ -298,20 +307,24 @@ mod tests {
     // === Whitespace & Error Tests ===
     #[test]
     fn test_tokenize_empty_or_whitespace_only() {
-        let kinds: Vec<TokenKind> = tokenize("   ").into_iter().map(|tok| tok.kind).collect();
+        let kinds: Vec<TokenKind> = tokenize("   ")
+            .unwrap()
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
         assert_eq!(kinds, vec![TokenKind::Eof]);
     }
 
     #[test]
     #[should_panic(expected = "無効な文字です")]
     fn test_tokenize_panic_on_invalid_char() {
-        let _ = tokenize("?");
+        let _ = tokenize("?").unwrap_err().unwrap();
     }
 
     // === Number & Arithmetic Tests ===
     #[test]
     fn test_tokenize_numbers_and_arithmetic() {
-        let head = tokenize("12 + 34 -5");
+        let head = tokenize("12 + 34 -5").unwrap();
         let mut t = &head;
         let mut kinds: Vec<&TokenKind> = Vec::new();
         while let Some(next) = &t.next {
@@ -334,6 +347,7 @@ mod tests {
     #[test]
     fn test_into_iterator() {
         let kinds: Vec<TokenKind> = tokenize("12 + 34 -5")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -354,6 +368,7 @@ mod tests {
     #[test]
     fn test_tokenize_ident() {
         let kinds: Vec<TokenKind> = tokenize("foo bar")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -374,6 +389,7 @@ mod tests {
     #[test]
     fn test_tokenize_alphanumeric_ident() {
         let kinds: Vec<TokenKind> = tokenize("foo123 bar456")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -394,6 +410,7 @@ mod tests {
     #[test]
     fn test_tokenize_i32_keyword_and_ident_mix() {
         let kinds: Vec<TokenKind> = tokenize("i32 i32foo fooi32")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -424,7 +441,11 @@ mod tests {
             TokenKind::Let,
         ];
         for (i, &kw) in keywords.iter().enumerate() {
-            let kinds: Vec<TokenKind> = tokenize(kw).into_iter().map(|tok| tok.kind).collect();
+            let kinds: Vec<TokenKind> = tokenize(kw)
+                .unwrap()
+                .into_iter()
+                .map(|tok| tok.kind)
+                .collect();
             assert_eq!(kinds, vec![expected[i].clone(), TokenKind::Eof]);
         }
     }
@@ -432,13 +453,18 @@ mod tests {
     // === Function Declaration Tests ===
     #[test]
     fn test_tokenize_fn_keyword() {
-        let kinds: Vec<TokenKind> = tokenize("fn").into_iter().map(|tok| tok.kind).collect();
+        let kinds: Vec<TokenKind> = tokenize("fn")
+            .unwrap()
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
         assert_eq!(kinds, vec![TokenKind::Fn, TokenKind::Eof]);
     }
 
     #[test]
     fn test_tokenize_fn_declaration() {
         let kinds: Vec<TokenKind> = tokenize("fn foo() { return 42; }")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -465,6 +491,7 @@ mod tests {
     #[test]
     fn test_tokenize_parens() {
         let kinds: Vec<TokenKind> = tokenize("(1+2)*3")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -486,6 +513,7 @@ mod tests {
     #[test]
     fn test_tokenize_call_tokens() {
         let kinds: Vec<TokenKind> = tokenize("foo(1,2)")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -507,13 +535,21 @@ mod tests {
 
     #[test]
     fn test_tokenize_ampersand_delimiter() {
-        let kinds: Vec<TokenKind> = tokenize("&").into_iter().map(|tok| tok.kind).collect();
+        let kinds: Vec<TokenKind> = tokenize("&")
+            .unwrap()
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
         assert_eq!(kinds, vec![TokenKind::Amp, TokenKind::Eof]);
     }
 
     #[test]
     fn test_tokenize_arrow_delimiter() {
-        let kinds: Vec<TokenKind> = tokenize("->").into_iter().map(|tok| tok.kind).collect();
+        let kinds: Vec<TokenKind> = tokenize("->")
+            .unwrap()
+            .into_iter()
+            .map(|tok| tok.kind)
+            .collect();
         assert_eq!(kinds, vec![TokenKind::Arrow, TokenKind::Eof]);
     }
 
@@ -521,6 +557,7 @@ mod tests {
     #[test]
     fn test_tokenize_arithmetic_operators() {
         let kinds: Vec<TokenKind> = tokenize("+ - * /")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -539,6 +576,7 @@ mod tests {
     #[test]
     fn test_tokenize_comparison_operators() {
         let kinds: Vec<TokenKind> = tokenize("== != < <= > >=")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -559,6 +597,7 @@ mod tests {
     #[test]
     fn test_tokenize_assignment_and_punctuation() {
         let kinds: Vec<TokenKind> = tokenize("= ; , :")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -577,6 +616,7 @@ mod tests {
     #[test]
     fn test_tokenize_grouping_and_brackets_delimiters() {
         let kinds: Vec<TokenKind> = tokenize("( ) { } [ ]")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -598,6 +638,7 @@ mod tests {
     #[test]
     fn test_tokenize_string() {
         let kinds: Vec<TokenKind> = tokenize(r#""Hello, world!""#)
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
@@ -615,13 +656,14 @@ mod tests {
     #[test]
     #[should_panic(expected = "文字列が閉じられていません")]
     fn test_tokenize_unclosed_string() {
-        let _ = tokenize(r#""Hello, world!"#);
+        let _ = tokenize(r#""Hello, world!"#).unwrap_err().unwrap();
     }
 
     // === Bracket & Indexing Tests ===
     #[test]
     fn test_tokenize_indexing_syntax() {
         let kinds: Vec<TokenKind> = tokenize("arr[123]")
+            .unwrap()
             .into_iter()
             .map(|tok| tok.kind)
             .collect();
