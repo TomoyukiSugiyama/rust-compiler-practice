@@ -1,4 +1,4 @@
-use crate::node::Node;
+use crate::node::{Node, OpKind};
 use std::sync::atomic::{AtomicUsize, Ordering};
 static LABEL_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -240,16 +240,7 @@ fn compute_max_offset(node: &Node) -> u64 {
             m
         }
         Node::Assign { lhs, rhs } => compute_max_offset(lhs).max(compute_max_offset(rhs)),
-        Node::Add { lhs, rhs }
-        | Node::Sub { lhs, rhs }
-        | Node::Mul { lhs, rhs }
-        | Node::Div { lhs, rhs }
-        | Node::Eq { lhs, rhs }
-        | Node::Ne { lhs, rhs }
-        | Node::Lt { lhs, rhs }
-        | Node::Gt { lhs, rhs }
-        | Node::Le { lhs, rhs }
-        | Node::Ge { lhs, rhs } => compute_max_offset(lhs).max(compute_max_offset(rhs)),
+        Node::BinaryOp { op: _, lhs, rhs } => compute_max_offset(lhs).max(compute_max_offset(rhs)),
         Node::Return { expr } | Node::Deref { expr } | Node::Addr { expr } => {
             compute_max_offset(expr)
         }
@@ -437,16 +428,42 @@ fn gen_node(node: &Node) {
         } => emit_for(init, cond, update, body),
         Node::ArrayAssign { offset, elements } => emit_array_assign(*offset, elements),
         Node::Assign { lhs, rhs } => emit_assign(lhs, rhs),
-        Node::Add { lhs, rhs } => emit_binop("add", lhs, rhs),
-        Node::Sub { lhs, rhs } => emit_binop("sub", lhs, rhs),
-        Node::Mul { lhs, rhs } => emit_binop("mul", lhs, rhs),
-        Node::Div { lhs, rhs } => emit_binop("sdiv", lhs, rhs),
-        Node::Eq { lhs, rhs } => emit_cmp("eq", lhs, rhs),
-        Node::Ne { lhs, rhs } => emit_cmp("ne", lhs, rhs),
-        Node::Lt { lhs, rhs } => emit_cmp("lt", lhs, rhs),
-        Node::Gt { lhs, rhs } => emit_cmp("gt", lhs, rhs),
-        Node::Le { lhs, rhs } => emit_cmp("le", lhs, rhs),
-        Node::Ge { lhs, rhs } => emit_cmp("ge", lhs, rhs),
+        Node::BinaryOp { op, lhs, rhs } => {
+            // Detect array indexing: addr - idx * 8, then dereference
+            if *op == OpKind::Sub {
+                if let Node::Addr { .. } = lhs.as_ref() {
+                    if let Node::BinaryOp {
+                        op: OpKind::Mul,
+                        lhs: _,
+                        rhs: mul_rhs_box,
+                    } = rhs.as_ref()
+                    {
+                        if let Node::Num { value: 8 } = *mul_rhs_box.as_ref() {
+                            // compute address
+                            emit_binop("sub", lhs, rhs);
+                            // pop pointer, load from memory, push value
+                            println!("    ldr x0, [sp], #16");
+                            println!("    ldr x0, [x0]");
+                            println!("    str x0, [sp, #-16]!");
+                            return;
+                        }
+                    }
+                }
+            }
+            // Normal binary operations
+            match op {
+                OpKind::Add => emit_binop("add", lhs, rhs),
+                OpKind::Sub => emit_binop("sub", lhs, rhs),
+                OpKind::Mul => emit_binop("mul", lhs, rhs),
+                OpKind::Div => emit_binop("sdiv", lhs, rhs),
+                OpKind::Eq => emit_cmp("eq", lhs, rhs),
+                OpKind::Ne => emit_cmp("ne", lhs, rhs),
+                OpKind::Lt => emit_cmp("lt", lhs, rhs),
+                OpKind::Gt => emit_cmp("gt", lhs, rhs),
+                OpKind::Le => emit_cmp("le", lhs, rhs),
+                OpKind::Ge => emit_cmp("ge", lhs, rhs),
+            }
+        }
         Node::Deref { expr } => emit_deref(expr),
         Node::Addr { expr } => emit_addr(expr),
     }

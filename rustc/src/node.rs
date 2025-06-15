@@ -3,6 +3,21 @@ use crate::token::*;
 use crate::variable::Variable;
 use std::iter::Peekable;
 
+// Introduce OpKind for binary operator kinds
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum OpKind {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Eq,
+    Ne,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Node {
     // Sequence of two statements: execute first, then second
@@ -39,45 +54,9 @@ pub enum Node {
         lhs: Box<Node>,
         rhs: Box<Node>,
     },
-    // Arithmetic operations
-    Add {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
-    },
-    Sub {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
-    },
-    Mul {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
-    },
-    Div {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
-    },
-    // Comparison operations
-    Eq {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
-    },
-    Ne {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
-    },
-    Lt {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
-    },
-    Gt {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
-    },
-    Le {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
-    },
-    Ge {
+    // Binary operations (arithmetic and comparison)
+    BinaryOp {
+        op: OpKind,
         lhs: Box<Node>,
         rhs: Box<Node>,
     },
@@ -468,14 +447,16 @@ fn equality(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         match tok.kind {
             TokenKind::EqEq => {
                 toks.next();
-                lhs = Node::Eq {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Eq,
                     lhs: Box::new(lhs),
                     rhs: Box::new(relational(toks, vars)),
                 };
             }
             TokenKind::Ne => {
                 toks.next();
-                lhs = Node::Ne {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Ne,
                     lhs: Box::new(lhs),
                     rhs: Box::new(relational(toks, vars)),
                 };
@@ -493,28 +474,32 @@ fn relational(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         match tok.kind {
             TokenKind::Lt => {
                 toks.next();
-                lhs = Node::Lt {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Lt,
                     lhs: Box::new(lhs),
                     rhs: Box::new(add(toks, vars)),
                 };
             }
             TokenKind::Gt => {
                 toks.next();
-                lhs = Node::Gt {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Gt,
                     lhs: Box::new(lhs),
                     rhs: Box::new(add(toks, vars)),
                 };
             }
             TokenKind::Le => {
                 toks.next();
-                lhs = Node::Le {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Le,
                     lhs: Box::new(lhs),
                     rhs: Box::new(add(toks, vars)),
                 };
             }
             TokenKind::Ge => {
                 toks.next();
-                lhs = Node::Ge {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Ge,
                     lhs: Box::new(lhs),
                     rhs: Box::new(add(toks, vars)),
                 };
@@ -532,14 +517,16 @@ fn add(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         match tok.kind {
             TokenKind::Plus => {
                 toks.next();
-                lhs = Node::Add {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Add,
                     lhs: Box::new(lhs),
                     rhs: Box::new(mul(toks, vars)),
                 };
             }
             TokenKind::Minus => {
                 toks.next();
-                lhs = Node::Sub {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Sub,
                     lhs: Box::new(lhs),
                     rhs: Box::new(mul(toks, vars)),
                 };
@@ -557,14 +544,16 @@ fn mul(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
         match tok.kind {
             TokenKind::Star => {
                 toks.next();
-                lhs = Node::Mul {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Mul,
                     lhs: Box::new(lhs),
                     rhs: Box::new(unary(toks, vars)),
                 };
             }
             TokenKind::Slash => {
                 toks.next();
-                lhs = Node::Div {
+                lhs = Node::BinaryOp {
+                    op: OpKind::Div,
                     lhs: Box::new(lhs),
                     rhs: Box::new(unary(toks, vars)),
                 };
@@ -585,7 +574,8 @@ fn unary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
             }
             TokenKind::Minus => {
                 toks.next();
-                return Node::Sub {
+                return Node::BinaryOp {
+                    op: OpKind::Sub,
                     lhs: Box::new(Node::Num { value: 0 }),
                     rhs: Box::new(primary(toks, vars)),
                 };
@@ -643,16 +633,16 @@ fn primary(toks: &mut Peekable<TokenIter>, vars: &mut Variable) -> Node {
                         vars.push(name.clone(), new_off);
                         new_off
                     };
-                    // compute address: &name - idx * 8, then dereference
-                    return Node::Deref {
-                        expr: Box::new(Node::Sub {
-                            lhs: Box::new(Node::Addr {
-                                expr: Box::new(Node::Var { offset }),
-                            }),
-                            rhs: Box::new(Node::Mul {
-                                lhs: Box::new(idx),
-                                rhs: Box::new(Node::Num { value: 8 }),
-                            }),
+                    // compute address: &name - idx * 8 (array indexing)
+                    return Node::BinaryOp {
+                        op: OpKind::Sub,
+                        lhs: Box::new(Node::Addr {
+                            expr: Box::new(Node::Var { offset }),
+                        }),
+                        rhs: Box::new(Node::BinaryOp {
+                            op: OpKind::Mul,
+                            lhs: Box::new(idx),
+                            rhs: Box::new(Node::Num { value: 8 }),
                         }),
                     };
                 }
@@ -1117,7 +1107,8 @@ mod tests {
         let node = expr(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Add {
+            Node::BinaryOp {
+                op: OpKind::Add,
                 lhs: Box::new(Node::Num { value: 1 }),
                 rhs: Box::new(Node::Num { value: 2 }),
             }
@@ -1129,9 +1120,11 @@ mod tests {
         let mut iter = tokenize("1+2*3").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = expr(&mut iter, &mut vars);
-        let expected = Node::Add {
+        let expected = Node::BinaryOp {
+            op: OpKind::Add,
             lhs: Box::new(Node::Num { value: 1 }),
-            rhs: Box::new(Node::Mul {
+            rhs: Box::new(Node::BinaryOp {
+                op: OpKind::Mul,
                 lhs: Box::new(Node::Num { value: 2 }),
                 rhs: Box::new(Node::Num { value: 3 }),
             }),
@@ -1144,8 +1137,10 @@ mod tests {
         let mut iter = tokenize("(1+2)*3").into_iter().peekable();
         let mut vars = Variable::new("".to_string(), 0, None);
         let node = expr(&mut iter, &mut vars);
-        let expected = Node::Mul {
-            lhs: Box::new(Node::Add {
+        let expected = Node::BinaryOp {
+            op: OpKind::Mul,
+            lhs: Box::new(Node::BinaryOp {
+                op: OpKind::Add,
                 lhs: Box::new(Node::Num { value: 1 }),
                 rhs: Box::new(Node::Num { value: 2 }),
             }),
@@ -1169,7 +1164,8 @@ mod tests {
         let node = expr(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Add {
+            Node::BinaryOp {
+                op: OpKind::Add,
                 lhs: Box::new(Node::Num { value: 1 }),
                 rhs: Box::new(Node::Num { value: 2 }),
             }
@@ -1193,11 +1189,12 @@ mod tests {
     #[test]
     fn test_expr_eq_ne() {
         let mut it1 = tokenize("1==2").into_iter().peekable();
-        let mut vars = Variable::new("".to_string(), 0, None);
-        let n1 = expr(&mut it1, &mut vars);
+        let mut vars1 = Variable::new("".to_string(), 0, None);
+        let n1 = expr(&mut it1, &mut vars1);
         assert_eq!(
             n1,
-            Node::Eq {
+            Node::BinaryOp {
+                op: OpKind::Eq,
                 lhs: Box::new(Node::Num { value: 1 }),
                 rhs: Box::new(Node::Num { value: 2 }),
             }
@@ -1207,7 +1204,8 @@ mod tests {
         let n2 = expr(&mut it2, &mut vars2);
         assert_eq!(
             n2,
-            Node::Ne {
+            Node::BinaryOp {
+                op: OpKind::Ne,
                 lhs: Box::new(Node::Num { value: 1 }),
                 rhs: Box::new(Node::Num { value: 2 }),
             }
@@ -1220,36 +1218,40 @@ mod tests {
         let mut it_lt = tokenize("1<2").into_iter().peekable();
         assert_eq!(
             expr(&mut it_lt, &mut vars),
-            Node::Lt {
+            Node::BinaryOp {
+                op: OpKind::Lt,
                 lhs: Box::new(Node::Num { value: 1 }),
-                rhs: Box::new(Node::Num { value: 2 }),
+                rhs: Box::new(Node::Num { value: 2 })
             }
         );
         let mut vars2 = Variable::new("".to_string(), 0, None);
         let mut it_gt = tokenize("2>1").into_iter().peekable();
         assert_eq!(
             expr(&mut it_gt, &mut vars2),
-            Node::Gt {
+            Node::BinaryOp {
+                op: OpKind::Gt,
                 lhs: Box::new(Node::Num { value: 2 }),
-                rhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 1 })
             }
         );
         let mut vars3 = Variable::new("".to_string(), 0, None);
         let mut it_le = tokenize("1<=1").into_iter().peekable();
         assert_eq!(
             expr(&mut it_le, &mut vars3),
-            Node::Le {
+            Node::BinaryOp {
+                op: OpKind::Le,
                 lhs: Box::new(Node::Num { value: 1 }),
-                rhs: Box::new(Node::Num { value: 1 }),
+                rhs: Box::new(Node::Num { value: 1 })
             }
         );
         let mut vars4 = Variable::new("".to_string(), 0, None);
         let mut it_ge = tokenize("2>=2").into_iter().peekable();
         assert_eq!(
             expr(&mut it_ge, &mut vars4),
-            Node::Ge {
+            Node::BinaryOp {
+                op: OpKind::Ge,
                 lhs: Box::new(Node::Num { value: 2 }),
-                rhs: Box::new(Node::Num { value: 2 }),
+                rhs: Box::new(Node::Num { value: 2 })
             }
         );
     }
@@ -1357,7 +1359,8 @@ mod tests {
         let node = expr(&mut iter, &mut vars);
         assert_eq!(
             node,
-            Node::Sub {
+            Node::BinaryOp {
+                op: OpKind::Sub,
                 lhs: Box::new(Node::Num { value: 0 }),
                 rhs: Box::new(Node::Num { value: 42 }),
             }
@@ -1425,15 +1428,15 @@ mod tests {
                         ],
                     }),
                     second: Box::new(Node::Return {
-                        expr: Box::new(Node::Deref {
-                            expr: Box::new(Node::Sub {
-                                lhs: Box::new(Node::Addr {
-                                    expr: Box::new(Node::Var { offset: 8 }),
-                                }),
-                                rhs: Box::new(Node::Mul {
-                                    lhs: Box::new(Node::Num { value: 2 }),
-                                    rhs: Box::new(Node::Num { value: 8 }),
-                                }),
+                        expr: Box::new(Node::BinaryOp {
+                            op: OpKind::Sub,
+                            lhs: Box::new(Node::Addr {
+                                expr: Box::new(Node::Var { offset: 8 }),
+                            }),
+                            rhs: Box::new(Node::BinaryOp {
+                                op: OpKind::Mul,
+                                lhs: Box::new(Node::Num { value: 2 }),
+                                rhs: Box::new(Node::Num { value: 8 }),
                             }),
                         }),
                     }),
